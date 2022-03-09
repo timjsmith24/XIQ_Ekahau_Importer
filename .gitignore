@@ -6,7 +6,6 @@
 /Mayflower.esx
 /Mayflower2.esx
 /__pycache__
-/app
 /fileupload.py
 /locationDf.txt
 /mapImportLogger.py
@@ -23,3 +22,11 @@
 /store 5261.esx
 /test.py
 /venv
+app/__init__.py
+app/.DS_Store
+app/__pycache__/__init__.cpython-39.pyc
+app/__pycache__/ap_csv_importer.cpython-39.pyc
+app/__pycache__/Ekahau_importer.cpython-39.pyc
+.gitignore
+app/__pycache__/xiq_exporter.cpython-39.pyc
+app/images

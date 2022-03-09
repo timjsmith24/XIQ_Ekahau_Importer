@@ -1,0 +1,25 @@
+/.DS_Store
+/.vscode
+/2991.esx
+/Ekahau_Importer.code-workspace
+/Ekahau_XIQ.ipynb
+/Mayflower.esx
+/Mayflower2.esx
+/__pycache__
+/app
+/fileupload.py
+/locationDf.txt
+/mapImportLogger.py
+/map_importer.log
+/mayflower2.csv
+/project
+/project_mf
+/project_mf_test
+/project_old
+/project_simple
+/rawData.txt
+/simple.esx
+/simpleSite.csv
+/store 5261.esx
+/test.py
+/venv

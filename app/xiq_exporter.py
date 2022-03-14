@@ -269,27 +269,6 @@ class XIQ:
             raise ValueError(log_msg)
     
     # EXTERNAL ACCOUNTS
-    def __checkExternalAccounts(self):
-        info="gather accessible external XIQ acccounts"
-        success = 0
-        url = "{}/account/external".format(self.URL)
-        for count in range(1, self.totalretries):
-            try:
-                data = self.__get_api_call(url=url)
-            except ValueError as e:
-                print(f"API to {info} failed attempt {count} of {self.totalretries} with {e}")
-            except:
-                print(f"API to {info} failed attempt {count} of {self.totalretries} with unknown API error")
-            else:
-                success = 1
-                break
-        if success != 1:
-            print(f"Failed to {info}")
-            return 1
-            
-        else:
-            return(data)
-
     def __getVIQInfo(self):
         info="get current VIQ name"
         success = 0
@@ -313,7 +292,48 @@ class XIQ:
             self.viqID = data['id']
 
 
-    def __switchAccount(self, viqID, viqName):
+    #BUILDINGS
+    def __buildLocationDf(self, location, pname = 'Global'):
+        if location['parent_id'] == None:
+            temp_df = pd.DataFrame([{'id': location['id'], 'name':location['name'], 'type': 'Global', 'parent':pname}])
+            self.locationTree_df = pd.concat([self.locationTree_df, temp_df], ignore_index=True)
+        else:
+            temp_df = pd.DataFrame([{'id': location['id'], 'name':location['name'], 'type': location['type'], 'parent':pname}])
+            self.locationTree_df = pd.concat([self.locationTree_df, temp_df], ignore_index=True)
+        r = json.dumps(location['children'])
+        if location['children']:
+            parent_name = location['name']
+            for child in location['children']:
+                self.__buildLocationDf(child, pname=parent_name)
+
+
+    ## EXTERNAL FUNCTION
+
+    #ACCOUNT SWITCH
+    def selectManagedAccount(self):
+        self.__getVIQInfo()
+        info="gather accessible external XIQ acccounts"
+        success = 0
+        url = "{}/account/external".format(self.URL)
+        for count in range(1, self.totalretries):
+            try:
+                data = self.__get_api_call(url=url)
+            except ValueError as e:
+                print(f"API to {info} failed attempt {count} of {self.totalretries} with {e}")
+            except:
+                print(f"API to {info} failed attempt {count} of {self.totalretries} with unknown API error")
+            else:
+                success = 1
+                break
+        if success != 1:
+            print(f"Failed to {info}")
+            return 1
+            
+        else:
+            return(data, self.viqName)
+
+
+    def switchAccount(self, viqID, viqName):
         info=f"switch to external account {viqName}"
         success = 0
         url = "{}/account/:switch?id={}".format(self.URL,viqID)
@@ -340,71 +360,19 @@ class XIQ:
         if "access_token" in data:
             #print("Logged in and Got access token: " + data["access_token"])
             self.headers["Authorization"] = "Bearer " + data["access_token"]
+            self.__getVIQInfo()
+            if viqName != self.viqName:
+                logger.error(f"Failed to switch external accounts. Script attempted to switch to {viqName} but is still in {self.viqName}")
+                print("Failed to switch to external account!!")
+                print("Script is exiting...")
+                raise SystemExit
             return 0
 
         else:
             log_msg = "Unknown Error: Unable to gain access token for XIQ"
             logger.warning(log_msg)
             raise ValueError(log_msg) 
-
-    #BUILDINGS
-    def __buildLocationDf(self, location, pname = 'Global'):
-        if location['parent_id'] == None:
-            temp_df = pd.DataFrame([{'id': location['id'], 'name':location['name'], 'type': 'Global', 'parent':pname}])
-            self.locationTree_df = pd.concat([self.locationTree_df, temp_df], ignore_index=True)
-        else:
-            temp_df = pd.DataFrame([{'id': location['id'], 'name':location['name'], 'type': location['type'], 'parent':pname}])
-            self.locationTree_df = pd.concat([self.locationTree_df, temp_df], ignore_index=True)
-        r = json.dumps(location['children'])
-        if location['children']:
-            parent_name = location['name']
-            for child in location['children']:
-                self.__buildLocationDf(child, pname=parent_name)
-
-
-    ## EXTERNAL FUNCTION
-
-    #ACCOUNT SWITCH
-    def selectManagedAccount(self):
-        self.__getVIQInfo()
-        accounts = self.__checkExternalAccounts()
-        if accounts == 1:
-            validResponse = False
-            while validResponse != True:
-                response = input("No External accounts found. Would you like to import data to your network? (y/n)")
-                if response == 'y':
-                    validResponse = True
-                elif response =='n':
-                    print("Thanks. Script is exiting...")
-                    raise SystemExit
-        elif accounts:
-            validResponse = False
-            while validResponse != True:
-                print("\nWhich VIQ would you like to import the floor plan and APs too?")
-                accounts_df = pd.DataFrame(accounts)
-                count = 0
-                for df_id, viq_info in accounts_df.iterrows():
-                    print(f"   {df_id}. {viq_info['name']}")
-                    count = df_id
-                print(f"   {count+1}. {self.viqName} (This is Your main account)\n")
-                selection = input(f"Please enter 0 - {count+1}: ")
-                try:
-                    selection = int(selection)
-                except:
-                    print("Please enter a valid response!!")
-                    continue
-                if 0 <= selection <= count+1:
-                    validResponse = True
-                    if selection != count+1:
-                        newViqID = (accounts_df.loc[int(selection),'id'])
-                        newViqName = (accounts_df.loc[int(selection),'name'])
-                        self.__switchAccount(newViqID, newViqName)
-                        self.__getVIQInfo()
-                        if newViqName != self.viqName:
-                            logger.error(f"Failed to switch external accounts. Script attempted to switch to {newViqName} but is still in {self.viqName}")
-                            print("Failed to switch to external account!!")
-                            print("Script is exiting...")
-                            raise SystemExit
+        
 
     # LOCATIONS
     def gatherLocations(self):

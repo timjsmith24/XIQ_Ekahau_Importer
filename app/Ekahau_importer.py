@@ -23,6 +23,7 @@ class Ekahau:
     def __init__(self, filename):
         self.filename = filename
         self.metersPerUnit = {}
+        self.scale = 1
         self.cropRotateSupport = True
 
         directory = PATH + '/images'
@@ -115,13 +116,17 @@ class Ekahau:
 
         if imageType == 'bitmap':
             filt = self.floorPlans_df['bitmapImageId'] == imageId
+            rawWidth = int(self.images_df.loc[imageId, 'resolutionWidth'])
+            rawHeight = int(self.images_df.loc[imageId, 'resolutionHeight'])
+            self.scale = rawWidth / int(self.floorPlans_df.loc[filt, 'width'].values[0])
         else:
             filt = self.floorPlans_df['imageId'] == imageId
+            rawWidth = int(self.floorPlans_df.loc[filt, 'width'].values[0])
+            rawHeight = int(self.floorPlans_df.loc[filt, 'height'].values[0])
         floorName = self.floorPlans_df.loc[filt, 'name'].values[0]
         orientation = self.floorPlans_df.loc[filt, 'rotateUpDirection'].values[0]
         floorplan_name = f"{self.project_info['name']}-{floorName}.png"
-        rawWidth = int(self.floorPlans_df.loc[filt, 'width'].values[0])
-        rawHeight = int(self.floorPlans_df.loc[filt, 'height'].values[0])
+        
 
         filename = f"{PATH}/project/image-{imageId}"
         newfilename = f"{PATH}/images/{floorplan_name}"
@@ -136,14 +141,15 @@ class Ekahau:
                 log_msg = "The /images/ directory is missing in the /app/ directory."
                 logger.error(log_msg)
                 raise ValueError(log_msg)
-
+       
         #Cropping image as necessary
-        minX=int(self.floorPlans_df.loc[filt, 'cropMinX'].values[0])
-        minY=int(self.floorPlans_df.loc[filt, 'cropMinY'].values[0])
-        maxX=int(self.floorPlans_df.loc[filt, 'cropMaxX'].values[0])
-        maxY=int(self.floorPlans_df.loc[filt, 'cropMaxY'].values[0])
+        minX=int(int(self.floorPlans_df.loc[filt, 'cropMinX'].values[0]) * self.scale)
+        minY=int(int(self.floorPlans_df.loc[filt, 'cropMinY'].values[0]) * self.scale)
+        maxX=int(int(self.floorPlans_df.loc[filt, 'cropMaxX'].values[0]) * self.scale)
+        maxY=int(int(self.floorPlans_df.loc[filt, 'cropMaxY'].values[0]) * self.scale)
+        print(minY,maxY, minX,maxX)
         crop_image = image[minY:maxY, minX:maxX]
-
+    
         #Get width and height of the floorplan
         width = (rawWidth - minX - (rawWidth -maxX)) * self.floorPlans_df.loc[filt, 'metersPerUnit'].values[0]
         height = (rawHeight - minY - (rawHeight -maxY)) * self.floorPlans_df.loc[filt, 'metersPerUnit'].values[0]
@@ -170,12 +176,14 @@ class Ekahau:
 
     def __updateAPCoord(self, floor_id, rawX,rawY):
         #get correct x,y coords
-        minX=int(self.floorPlans_df.loc[floor_id, 'cropMinX'])
-        minY=int(self.floorPlans_df.loc[floor_id, 'cropMinY'])
-        maxX=int(self.floorPlans_df.loc[floor_id, 'cropMaxX'])
-        maxY=int(self.floorPlans_df.loc[floor_id, 'cropMaxY'])
+        minX=int(int(self.floorPlans_df.loc[floor_id, 'cropMinX']) * self.scale)
+        minY=int(int(self.floorPlans_df.loc[floor_id, 'cropMinY']) * self.scale)
+        maxX=int(int(self.floorPlans_df.loc[floor_id, 'cropMaxX']) * self.scale)
+        maxY=int(int(self.floorPlans_df.loc[floor_id, 'cropMaxY']) * self.scale)
         metersPerUnit = self.floorPlans_df.loc[floor_id, 'metersPerUnit']
         orientation = self.floorPlans_df.loc[floor_id, 'rotateUpDirection']
+        rawX = rawX  * self.scale
+        rawY = rawY  * self.scale
 
         if orientation == 'UP':
             x = (rawX - minX) * metersPerUnit
@@ -242,7 +250,7 @@ class Ekahau:
                 floorImageName, width, height = self.__floorImageProcessing(imageId, imageType)
             except ValueError as e:
                 raise ValueError(e)
-                
+
             #Floor Payload
             data = {
                 "floor_id" : floor_id, 

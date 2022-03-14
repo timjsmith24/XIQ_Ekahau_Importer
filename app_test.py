@@ -5,6 +5,9 @@ import logging
 import argparse
 import time
 import sys
+import os
+import inspect
+import shutil
 import getpass
 from cv2 import isContourConvex
 import pandas as pd
@@ -14,12 +17,16 @@ from app.Ekahau_importer import Ekahau
 from app.ap_csv_importer import apSerialCSV
 from mapImportLogger import logger
 from app.xiq_exporter import XIQ
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 logger = logging.getLogger('MapImporter.Main')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--external',action="store_true", help="Optional - adds External Account selection, to create floorplans and APs on external VIQ")
 parser.add_argument('--csv', type=str, help="Optional - Allows to import a CSV file that will match AP names to serial numbers") 
 args = parser.parse_args()
+
+PATH = current_dir
+imageFilePath = PATH + "/app/images/"
 
 def yesNoLoop(question):
     validResponse = False
@@ -35,6 +42,13 @@ def yesNoLoop(question):
             print("Script is exiting...")
             raise SystemExit
     return response
+
+def checkNameLength(name, type):
+    while len(name) > 32:
+        print(f"'{name}' is longer than 32 characters allowed for a name.")
+        name = input(f"Please enter a new name for the {type} that is less than 32 characters: ")
+    return name
+
 
 def getParentLocation(building="new"):
     # Get Parent location
@@ -83,6 +97,10 @@ def createLocation(parent_id):
         elif location_name.lower() == 'quit':
             print("script is exiting....")
             raise SystemExit
+        elif not location_name.strip():
+            print("\nPlease enter a new location name.\n") 
+            continue
+        location_name = checkNameLength(location_name, type='location')
         print(f"\nLocation '{location_name}' will be created.")
         response = yesNoLoop("Would you like to proceed?")
         if response == 'y':
@@ -112,6 +130,7 @@ def createBuildingInfo(location_id, parent_name):
             continue
         if not building_address.strip():
             building_address = 'Unknown Address'
+        building_name = checkNameLength(building_name, type='building')
         print(f"\n\nBuilding '{building_name}' with address '{building_address}' will be created under location '{parent_name}'.")
         response = yesNoLoop("Would you like to proceed?")
         if response == 'y':
@@ -132,12 +151,13 @@ def updateApWithId(ap):
 filename = str(input("Please enter the Ekahau File: ")).strip()
 #filename = "Mayflower.esx"
 filename = filename.replace("\ ", " ")
+filename = filename.replace("'", "")
 
 
 print("Gathering Ekahau Data.... ", end='')
 sys.stdout.flush()
 x = Ekahau(filename)
-#try:
+#FIX try:
 rawData = x.exportFile()
 #except ValueError as e:
 #    print("Failed")
@@ -149,6 +169,7 @@ rawData = x.exportFile()
 #    print(log_msg)
 #    logger.error(log_msg)
 #    raise SystemExit
+#FIX
 #pprint(rawData)
 #print("\n\n")
 print("Complete\n")
@@ -191,7 +212,39 @@ password = getpass.getpass("Password: ")
 
 x = XIQ(username,password)
 if args.external:
-    x.selectManagedAccount()
+    accounts, viqName = x.selectManagedAccount()
+    if accounts == 1:
+        validResponse = False
+        while validResponse != True:
+            response = input("No External accounts found. Would you like to import data to your network? (y/n)")
+            if response == 'y':
+                validResponse = True
+            elif response =='n':
+                print("Thanks. Script is exiting...")
+                raise SystemExit
+    elif accounts:
+        validResponse = False
+        while validResponse != True:
+            print("\nWhich VIQ would you like to import the floor plan and APs too?")
+            accounts_df = pd.DataFrame(accounts)
+            count = 0
+            for df_id, viq_info in accounts_df.iterrows():
+                print(f"   {df_id}. {viq_info['name']}")
+                count = df_id
+            print(f"   {count+1}. {viqName} (This is Your main account)\n")
+            selection = input(f"Please enter 0 - {count+1}: ")
+            try:
+                selection = int(selection)
+            except:
+                print("Please enter a valid response!!")
+                continue
+            if 0 <= selection <= count+1:
+                validResponse = True
+                if selection != count+1:
+                    newViqID = (accounts_df.loc[int(selection),'id'])
+                    newViqName = (accounts_df.loc[int(selection),'name'])
+                    x.switchAccount(newViqID, newViqName)
+                    
 
 xiq_building_exist = False
 ekahau_building_exists = False
@@ -216,7 +269,7 @@ if rawData['building']:
                 xiq_building_exist = True
                 filt = location_df['name'] == building['name']
                 building_id = location_df.loc[filt, 'id'].values[0]
-                building['xiq_building_id'] = building_id
+                building['xiq_building_id'] = str(building_id)
                 logger.info(f"There is already a building with the name {building['name']} that will be used")
             else:
                 print('Ok we will attempt to create a new building but it will have to be renamed.')
@@ -236,6 +289,8 @@ if rawData['building']:
             if not data['address'].strip():
                 data['address'] = 'Unknown Address'
             data['parent_id'] = f"{location_id}"
+            if len(data['name']) > 32:
+                data['name'] = checkNameLength(data['name'], type='building')
             building['xiq_building_id'] = x.createBuilding(data)
             if building['xiq_building_id'] != 0:
                 log_msg = f"Building {building['name']} was successfully created."
@@ -259,7 +314,7 @@ ek_building_df = pd.DataFrame(rawData['building'])
 if ekahau_building_exists == True:
     for floor in rawData['floors']:
         if floor['associated_building_id'] == None:
-            log_msg = f"Floor {floor['name']} is not associated with the buildings in Ekahau so it will be skipped."
+            log_msg = f"Floor '{floor['name']}' is not associated with the buildings in Ekahau so it will be skipped."
             logger.warning(log_msg)
             print(log_msg)
             continue
@@ -286,10 +341,28 @@ if ekahau_building_exists == True:
                     continue
 
         # upload floorplan image
+        if len(floor['map_name']) > 32:
+            oldFileName = imageFilePath + floor['map_name']
+            floor['map_name'] = checkNameLength(floor['map_name'], type='floorplan')
+            if not floor['map_name'].endswith('.png'):
+                root, ext = os.path.splitext(floor['map_name'])
+                ext = '.png'
+                floor['map_name'] = root + ext
+            if " " in floor['map_name']:
+                floor['map_name'] = floor['map_name'].replace(" ", "")
+            newFileName = imageFilePath + floor['map_name']
+            os.rename(oldFileName, newFileName)
+        elif " " in floor['map_name']:
+            oldFileName = imageFilePath + floor['map_name']
+            floor['map_name'] = floor['map_name'].replace(" ", "")
+            newFileName = imageFilePath + floor['map_name']
+            os.rename(oldFileName, newFileName)
+
+
         print(f"Uploading {floor['map_name']} to XIQ.... ", end='')
         sys.stdout.flush()
-        x.uploadFloorplan(floor['map_name'])
-        time.sleep(10)
+        #x.uploadFloorplan(floor['map_name'])
+        #time.sleep(10)
         print("Completed\n")
 
         
@@ -298,7 +371,9 @@ if ekahau_building_exists == True:
         del data['associated_building_id']
         del data['floor_id']
         del data['xiq_floor_id']
-        data['parent_id'] = f"{xiq_building_id}"
+        data['parent_id'] = str(xiq_building_id)
+        if len(data['name']) > 32:
+            data['name'] = checkNameLength(data['name'], type='floor')
         floor['xiq_floor_id'] = x.createFloor(data)
         if floor['xiq_floor_id'] != 0:
             print(f"Floor {floor['name']} was successfully created.\n")
@@ -473,4 +548,6 @@ for ap_sn in apsToConfigure:
         logger.info(f"Set location for {ap_df['name'].values[0]}")
 
 print("Finished renaming APs and moving them")
+
+shutil.rmtree(imageFilePath)
 

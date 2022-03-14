@@ -360,8 +360,8 @@ if ekahau_building_exists == True:
 
         print(f"Uploading {floor['map_name']} to XIQ.... ", end='')
         sys.stdout.flush()
-        #x.uploadFloorplan(floor['map_name'])
-        #time.sleep(10)
+        x.uploadFloorplan(floor['map_name'])
+        time.sleep(10)
         print("Completed\n")
 
         

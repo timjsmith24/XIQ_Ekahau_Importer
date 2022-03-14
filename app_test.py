@@ -157,19 +157,18 @@ filename = filename.replace("'", "")
 print("Gathering Ekahau Data.... ", end='')
 sys.stdout.flush()
 x = Ekahau(filename)
-#FIX try:
-rawData = x.exportFile()
-#except ValueError as e:
-#    print("Failed")
-#    print(e)
-#    raise SystemExit
-#except:
-#    log_msg = "Unknown Error opening and exporting Ekahau data"
-#    print("Failed")
-#    print(log_msg)
-#    logger.error(log_msg)
-#    raise SystemExit
-#FIX
+try:
+    rawData = x.exportFile()
+except ValueError as e:
+    print("Failed")
+    print(e)
+    raise SystemExit
+except:
+    log_msg = "Unknown Error opening and exporting Ekahau data"
+    print("Failed")
+    print(log_msg)
+    logger.error(log_msg)
+    raise SystemExit
 #pprint(rawData)
 #print("\n\n")
 print("Complete\n")

@@ -384,7 +384,7 @@ class XIQ:
         return (self.locationTree_df)
 
     def createLocation(self, location_name, data):
-        info=f"create location {location_name}"
+        info=f"create location '{location_name}'"
         url = "{}/locations".format(self.URL)
         payload = json.dumps(data)
         response = self.__setup_post_api_call(info,url,payload)
@@ -394,15 +394,15 @@ class XIQ:
     
     #BUILDINGS
     def createBuilding(self, data):
-        info=f"create building {data['name']}"
+        info=f"create building '{data['name']}'"
         url = "{}/locations/building".format(self.URL)
         payload = json.dumps(data)
         response = self.__setup_post_api_call(info, url, payload)
         return response['id']
 
     #FLOORS
-    def uploadFloorplan(self, filename):
-        info=f"upload {filename}"
+    def uploadFloorplan(self, filename, floorname):
+        info=f"upload file '{filename}'"
         success = 0
         url = "{}/locations/floorplan".format(self.URL)
         filepathname = PATH + f"/images/{filename}"
@@ -429,10 +429,10 @@ class XIQ:
             print("exiting script...")
             raise SystemExit
         else:
-            logger.info(f"Successfully uploaded {filename}")
+            logger.info(f"Successfully uploaded {filename} for {floorname}")
 
     def createFloor(self, data):
-        info=f"create floor {data['name']}"
+        info=f"create floor '{data['name']}'"
         url = "{}/locations/floor".format(self.URL)
         payload = json.dumps(data)
         response = self.__setup_post_api_call(info,url,payload)
@@ -455,13 +455,13 @@ class XIQ:
         return response
 
     def renameAP(self, ap_id, name):
-        info="rename AP {}".format(ap_id)
+        info="rename AP '{}'".format(ap_id)
         url = f"{self.URL}/devices/{ap_id}/hostname?hostname={name}"
         response = self.__setup_put_api_call(info,url)
         return response
 
     def changeAPLocation(self, ap_id, data):
-        info="set location for AP {}".format(ap_id)
+        info="set location for AP '{}'".format(ap_id)
         payload = json.dumps(data)
         url = f"{self.URL}/devices/{ap_id}/location"
         response = self.__setup_put_api_call(info,url,payload=payload)

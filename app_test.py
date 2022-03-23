@@ -153,7 +153,7 @@ filename = str(input("Please enter the Ekahau File: ")).strip()
 filename = filename.replace("\ ", " ")
 filename = filename.replace("'", "")
 
-
+saveImages = False
 print("Gathering Ekahau Data.... ", end='')
 sys.stdout.flush()
 x = Ekahau(filename)
@@ -200,7 +200,6 @@ if args.csv:
         logger.warning("These APs were in the CSV file but did not match the name of any AP in Ekahau: " + ",".join(unmatched_csv_ap))
     #pprint(rawData)
     #print("\n\n")
-
 
 ## XIQ EXPORT
 
@@ -260,6 +259,7 @@ if rawData['building']:
         #if not (lambda x: x['associated_building_id'] == building['building_id'], rawData['floors']):
         if not any(d['associated_building_id'] == building['building_id'] for d in rawData['floors']):
             log_msg = (f"no floors were found for building {building['name']}. Skipping creation of building")
+            logger.info(log_msg)
             continue
         ekahau_building_exists = True
         if building['name'] in building_df['name'].unique():
@@ -280,6 +280,35 @@ if rawData['building']:
                     log_msg = f"Building {building['name']} was successfully created."
                     print(log_msg+'\n')
                     logger.info(log_msg)
+        elif building['name'].lower() == 'building 1':
+            print(f"Building name is set to the default Ekahau building name - {building['name']}")
+            response = yesNoLoop("Would you like to change the name?")
+            if response == 'y':
+                print('Ok we will attempt to create a new building but it will have to be renamed.')
+                location_id, parent_name = getParentLocation()
+                data = createBuildingInfo(location_id,parent_name)
+                building['name'] = data['name']
+                building['xiq_building_id'] = x.createBuilding(data)
+                if building['xiq_building_id'] != 0:
+                    log_msg = f"Building {building['name']} was successfully created."
+                    print(log_msg+'\n')
+                    logger.info(log_msg)
+            else:
+                data = building.copy()
+                location_id, parent_name = getParentLocation(building=building['name'])
+                del data['building_id']
+                del data['xiq_building_id']
+                if not data['address'].strip():
+                    data['address'] = 'Unknown Address'
+                data['parent_id'] = f"{location_id}"
+                if len(data['name']) > 32:
+                    data['name'] = checkNameLength(data['name'], type='building')
+                building['xiq_building_id'] = x.createBuilding(data)
+                if building['xiq_building_id'] != 0:
+                    log_msg = f"Building {building['name']} was successfully created."
+                    print(log_msg+'\n')
+                    logger.info(log_msg)
+
         else:
             data = building.copy()
             location_id, parent_name = getParentLocation(building=building['name'])
@@ -318,7 +347,7 @@ if ekahau_building_exists == True:
             print(log_msg)
             continue
         filt = ek_building_df['building_id'] == floor['associated_building_id']
-        xiq_building_id = ek_building_df.loc[filt, 'xiq_building_id'].values[0]
+        xiq_building_id = int(ek_building_df.loc[filt, 'xiq_building_id'].values[0])
         building_name = ek_building_df.loc[filt, 'name'].values[0]
         #check if floor exists
         if xiq_building_exist == True:
@@ -340,29 +369,25 @@ if ekahau_building_exists == True:
                     continue
 
         # upload floorplan image
-        if len(floor['map_name']) > 32:
-            oldFileName = imageFilePath + floor['map_name']
-            floor['map_name'] = checkNameLength(floor['map_name'], type='floorplan')
-            if not floor['map_name'].endswith('.png'):
-                root, ext = os.path.splitext(floor['map_name'])
-                ext = '.png'
-                floor['map_name'] = root + ext
-            if " " in floor['map_name']:
-                floor['map_name'] = floor['map_name'].replace(" ", "")
-            newFileName = imageFilePath + floor['map_name']
-            os.rename(oldFileName, newFileName)
-        elif " " in floor['map_name']:
+        if 'FILE_TOO_BIG_' in floor['map_name']:
+            filename = floor['map_name'].replace("FILE_TOO_BIG_","")
+            floor['map_name'] = ''
+            log_msg = f"The image file for floor '{floor['name']}' is too big to upload using the API. Please upload {filename} located in the app/images folder and assign it to the floor."
+            logger.error(log_msg)
+            print(log_msg)
+            saveImages = True
+        if " " in floor['map_name']:
             oldFileName = imageFilePath + floor['map_name']
             floor['map_name'] = floor['map_name'].replace(" ", "")
             newFileName = imageFilePath + floor['map_name']
             os.rename(oldFileName, newFileName)
 
-
-        print(f"Uploading {floor['map_name']} to XIQ.... ", end='')
-        sys.stdout.flush()
-        x.uploadFloorplan(floor['map_name'])
-        time.sleep(10)
-        print("Completed\n")
+        if floor['map_name']:
+            print(f"Uploading {floor['map_name']} to XIQ.... ", end='')
+            sys.stdout.flush()
+            x.uploadFloorplan(floor['map_name'],floor['name'])
+            time.sleep(10)
+            print("Completed\n")
 
         
         # get data for floor
@@ -370,7 +395,7 @@ if ekahau_building_exists == True:
         del data['associated_building_id']
         del data['floor_id']
         del data['xiq_floor_id']
-        data['parent_id'] = str(xiq_building_id)
+        data['parent_id'] = xiq_building_id
         if len(data['name']) > 32:
             data['name'] = checkNameLength(data['name'], type='floor')
         floor['xiq_floor_id'] = x.createFloor(data)
@@ -388,7 +413,7 @@ else:
         # upload floorplan image
         print(f"Uploading {floor['map_name']} to XIQ.... ", end='')
         sys.stdout.flush()
-        x.uploadFloorplan(floor['map_name'])
+        x.uploadFloorplan(floor['map_name'], floor['name'])
         time.sleep(10)
         print("Completed\n")
         # get data for floor
@@ -425,9 +450,9 @@ if duplicateSN:
 nanValues = ek_ap_df[ek_ap_df['sn'].isna()]
 listOfSN = list(ek_ap_df['sn'].dropna().unique())
 if nanValues.name.size > 0 and len(listOfSN) == 0:
-    log_msg = ("\nSerial numbers were not found for any AP. Please check to make sure they are added correctly and try again.")
+    log_msg = ("Serial numbers were not found for any AP. Please check to make sure they are added correctly and try again.")
     logger.warning(log_msg)
-    print(log_msg)
+    print("\n"+log_msg)
     print("script is exiting....")
     raise SystemExit
 elif nanValues.name.size > 0:
@@ -548,5 +573,6 @@ for ap_sn in apsToConfigure:
 
 print("Finished renaming APs and moving them")
 
-shutil.rmtree(imageFilePath)
+if saveImages == False:
+    shutil.rmtree(imageFilePath)
 

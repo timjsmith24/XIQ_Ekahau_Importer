@@ -32,6 +32,10 @@ class Ekahau:
                 os.remove(os.path.join(directory, f))
         else:
             os.makedirs(directory)
+        
+        self.projectFolder = f"{PATH}/project"
+        if os.path.exists(self.projectFolder) and os.path.isdir(self.projectFolder):
+            shutil.rmtree(self.projectFolder)
 
 
 
@@ -52,10 +56,16 @@ class Ekahau:
             logger.info(log_msg)
             raise ValueError(log_msg)
         
+        #Check version
+        dir_list = os.listdir(self.projectFolder)
+        if 'project.xml' in dir_list:
+            log_msg = ("Older Ekahau file detected. Please update file using Ekahau 10.x and try again.")
+            logger.error(log_msg)
+            raise ValueError(log_msg)
         # Import itemList json files 
         for item in itemList:
             try:
-                 with open(f"{PATH}/project/{item}.json", 'r') as f:
+                 with open(f"{self.projectFolder}/{item}.json", 'r') as f:
                     data[item] = json.load(f)
             except FileNotFoundError:
                 if item == 'buildings' or item == 'buildingFloors':
@@ -124,30 +134,46 @@ class Ekahau:
             rawWidth = int(self.floorPlans_df.loc[filt, 'width'].values[0])
             rawHeight = int(self.floorPlans_df.loc[filt, 'height'].values[0])
         floorName = self.floorPlans_df.loc[filt, 'name'].values[0]
+        imageFormat = (self.images_df.loc[imageId, 'imageFormat'])
         orientation = self.floorPlans_df.loc[filt, 'rotateUpDirection'].values[0]
-        floorplan_name = f"{self.project_info['name']}-{floorName}.png"
-        
 
-        filename = f"{PATH}/project/image-{imageId}"
+        
+        #if imageFormat == 'JPEG':
+        fileExt = 'jpg'
+        #elif imageFormat == 'PNG':
+        #    fileExt = 'png'
+    
+
+        floorplan_name = f"{imageId}.{fileExt}"
+        filename = f"{self.projectFolder}/image-{imageId}"
         newfilename = f"{PATH}/images/{floorplan_name}"
         try:
-            image = cv2.imread(filename)
+            file_size = os.path.getsize(filename)
         except FileNotFoundError:
             if not os.path.isfile(filename):
-                log_msg = f"{self.filename} file does not exist"
+                log_msg = f"{filename} file does not exist"
                 logger.error(log_msg)
                 raise ValueError(log_msg)
             elif not os.path.isdir(PATH + '/images/'):
                 log_msg = "The /images/ directory is missing in the /app/ directory."
                 logger.error(log_msg)
                 raise ValueError(log_msg)
+        quality = 75
+        if file_size > 1000000:
+            quality = 50
+        image = cv2.imread(filename)
+        if image is None:
+            log_msg = f"Script failed to read in file {filename}"
+            logger.error(log_msg)
+            raise ValueError(log_msg)
+            
        
         #Cropping image as necessary
         minX=int(int(self.floorPlans_df.loc[filt, 'cropMinX'].values[0]) * self.scale)
         minY=int(int(self.floorPlans_df.loc[filt, 'cropMinY'].values[0]) * self.scale)
         maxX=int(int(self.floorPlans_df.loc[filt, 'cropMaxX'].values[0]) * self.scale)
         maxY=int(int(self.floorPlans_df.loc[filt, 'cropMaxY'].values[0]) * self.scale)
-        print(minY,maxY, minX,maxX)
+        #print(minY,maxY, minX,maxX)
         crop_image = image[minY:maxY, minX:maxX]
     
         #Get width and height of the floorplan
@@ -167,11 +193,15 @@ class Ekahau:
             image = crop_image
 
         #write cropped and rotated image file
-        write_status = cv2.imwrite(newfilename, image)
+        write_status = cv2.imwrite(newfilename, image, [cv2.IMWRITE_JPEG_QUALITY, quality])
         if not write_status:
             log_msg = f"Failed to write {newfilename} after croping"
             logger.error(log_msg)
             raise ValueError(log_msg)
+        
+        file_size = os.path.getsize(newfilename)
+        if file_size > 1000000:
+            floorplan_name = 'FILE_TOO_BIG_' + floorplan_name
         return floorplan_name, width, height
 
     def __updateAPCoord(self, floor_id, rawX,rawY):

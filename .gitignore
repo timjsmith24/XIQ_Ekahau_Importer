@@ -23,3 +23,4 @@ app/__pycache__/xiq_exporter.cpython-39.pyc
 app/images
 archive/*
 *.log
+/app/project/*

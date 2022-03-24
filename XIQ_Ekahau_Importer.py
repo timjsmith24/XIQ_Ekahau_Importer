@@ -187,7 +187,11 @@ try:
     rawData = x.exportFile()
 except ValueError as e:
     print("Failed")
-    print(e)
+    sys.stdout.write(YELLOW)
+    sys.stdout.write(str(e) +'\n')
+    sys.stdout.write(RED)
+    sys.stdout.write("script is exiting....\n")
+    sys.stdout.write(RESET)
     raise SystemExit
 except:
     log_msg = "Unknown Error opening and exporting Ekahau data"

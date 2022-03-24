@@ -54,6 +54,7 @@ class Ekahau:
         except json.JSONDecodeError:
             log_msg = f"{self.filename} file is corrupted, script cannot proceed"
             logger.info(log_msg)
+            shutil.rmtree(self.projectFolder)
             raise ValueError(log_msg)
         
         #Check version
@@ -61,6 +62,7 @@ class Ekahau:
         if 'project.xml' in dir_list:
             log_msg = ("Older Ekahau file detected. Please update file using Ekahau 10.x and try again.")
             logger.error(log_msg)
+            shutil.rmtree(self.projectFolder)
             raise ValueError(log_msg)
         # Import itemList json files 
         for item in itemList:

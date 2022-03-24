@@ -28,6 +28,13 @@ args = parser.parse_args()
 PATH = current_dir
 imageFilePath = PATH + "/app/images/"
 
+# Git Shell Coloring - https://gist.github.com/vratiu/9780109
+RED   = "\033[1;31m"  
+BLUE  = "\033[1;34m"
+GREEN = "\033[0;32m"
+YELLOW = "\033[0;33m"
+RESET = "\033[0;0m"
+
 def yesNoLoop(question):
     validResponse = False
     while validResponse != True:
@@ -39,13 +46,17 @@ def yesNoLoop(question):
             response = 'y'
             validResponse = True
         elif response == 'q' or response == 'quit':
-            print("Script is exiting...")
+            sys.stdout.write(RED)
+            sys.stdout.write("script is exiting....\n")
+            sys.stdout.write(RESET)
             raise SystemExit
     return response
 
 def checkNameLength(name, type):
     while len(name) > 32:
-        print(f"'{name}' is longer than 32 characters allowed for a name.")
+        sys.stdout.write(YELLOW)
+        sys.stdout.write(f"'{name}' is longer than 32 characters allowed for a name.\n")
+        sys.stdout.write(RESET)
         name = input(f"Please enter a new name for the {type} that is less than 32 characters: ")
     return name
 
@@ -70,7 +81,9 @@ def getParentLocation(building="new"):
             try:
                 selection = int(selection)
             except:
-                print("Please enter a valid response!!")
+                sys.stdout.write(YELLOW)
+                sys.stdout.write("Please enter a valid response!!\n")
+                sys.stdout.write(RESET)
                 continue
             if 0 <= selection < count:
                 validResponse = True
@@ -92,10 +105,14 @@ def createLocation(parent_id):
     while validResponse != True:
         location_name = input("What would you like the name of this location to be? ")
         if location_name in sublocation_df['name'].unique():
-            print("\nThis location name exists already. Please enter a new location name.\n") 
+            sys.stdout.write(YELLOW)
+            sys.stdout.write("\nThis location name exists already. Please enter a new location name.\n") 
+            sys.stdout.write(RESET)
             continue
         elif location_name.lower() == 'quit':
-            print("script is exiting....")
+            sys.stdout.write(RED)
+            sys.stdout.write("script is exiting....\n")
+            sys.stdout.write(RESET)
             raise SystemExit
         elif not location_name.strip():
             print("\nPlease enter a new location name.\n") 
@@ -107,11 +124,15 @@ def createLocation(parent_id):
             validResponse = True
             data = {"parent_id": parent_id, "name": location_name}
         elif response == 'n':
-            print("script is exiting....")
+            sys.stdout.write(RED)
+            sys.stdout.write("script is exiting....\n")
+            sys.stdout.write(RESET)
             raise SystemExit
     subLocationId = x.createLocation(location_name, data)
     if subLocationId != 0:
-        print(f"Location {location_name} was successfully created.\n")
+        sys.stdout.write(GREEN)
+        sys.stdout.write(f"Location {location_name} was successfully created.\n\n")
+        sys.stdout.write(RESET)
     return subLocationId, location_name
 
 def createBuildingInfo(location_id, parent_name):
@@ -120,10 +141,13 @@ def createBuildingInfo(location_id, parent_name):
         building_name = input("What would you like the name of the building to be? ")
         building_address = input("What is the address for this building? ")
         if building_name in building_df['name'].unique():
-            print("\nThis building name exists already. Please enter a new building name.\n") 
+            sys.stdout.write(YELLOW)
+            sys.stdout.write("\nThis building name exists already. Please enter a new building name.\n\n") 
             continue
         elif building_name.lower() == 'quit':
-            print("script is exiting....")
+            sys.stdout.write(RED)
+            sys.stdout.write("script is exiting....\n")
+            sys.stdout.write(RESET)
             raise SystemExit
         elif not building_name.strip():
             print("\nPlease enter a new building name.\n") 
@@ -138,7 +162,9 @@ def createBuildingInfo(location_id, parent_name):
             data = {"parent_id": location_id, "name": building_name, "address": building_address}
             return data
         elif response == 'n':
-            print("script is exiting....")
+            sys.stdout.write(RED)
+            sys.stdout.write("script is exiting....\n")
+            sys.stdout.write(RESET)
             raise SystemExit
 
 def updateApWithId(ap):
@@ -186,7 +212,9 @@ if args.csv:
         print(e)
     except:
         log_msg = "Unknown Error opening and exporting CSV data"
-        print(log_msg)
+        sys.stdout.write(RED)
+        sys.stdout.write(log_msg+"\n")
+        sys.stdout.write(RESET)
         logger.error(log_msg)
         raise SystemExit
     print("Complete\n")
@@ -218,7 +246,10 @@ if args.external:
             if response == 'y':
                 validResponse = True
             elif response =='n':
-                print("Thanks. Script is exiting...")
+                sys.stdout.write("Thanks. ")
+                sys.stdout.write(RED)
+                sys.stdout.write("Script is exiting....\n")
+                sys.stdout.write(RESET)
                 raise SystemExit
     elif accounts:
         validResponse = False
@@ -234,7 +265,9 @@ if args.external:
             try:
                 selection = int(selection)
             except:
-                print("Please enter a valid response!!")
+                sys.stdout.write(YELLOW)
+                sys.stdout.write("Please enter a valid response!!\n")
+                sys.stdout.write(RESET)
                 continue
             if 0 <= selection <= count+1:
                 validResponse = True
@@ -291,7 +324,9 @@ if rawData['building']:
                 building['xiq_building_id'] = x.createBuilding(data)
                 if building['xiq_building_id'] != 0:
                     log_msg = f"Building {building['name']} was successfully created."
-                    print(log_msg+'\n')
+                    sys.stdout.write(GREEN)
+                    sys.stdout.write(log_msg+'\n\n')
+                    sys.stdout.write(RESET)
                     logger.info(log_msg)
             else:
                 data = building.copy()
@@ -306,7 +341,9 @@ if rawData['building']:
                 building['xiq_building_id'] = x.createBuilding(data)
                 if building['xiq_building_id'] != 0:
                     log_msg = f"Building {building['name']} was successfully created."
-                    print(log_msg+'\n')
+                    sys.stdout.write(GREEN)
+                    sys.stdout.write(log_msg+'\n\n')
+                    sys.stdout.write(RESET)
                     logger.info(log_msg)
 
         else:
@@ -322,7 +359,9 @@ if rawData['building']:
             building['xiq_building_id'] = x.createBuilding(data)
             if building['xiq_building_id'] != 0:
                 log_msg = f"Building {building['name']} was successfully created."
-                print(log_msg+'\n')
+                sys.stdout.write(GREEN)
+                sys.stdout.write(log_msg+'\n\n')
+                sys.stdout.write(RESET)
                 logger.info(log_msg)
             
     
@@ -332,7 +371,9 @@ if xiq_building_exist == False and ekahau_building_exists == False:
     data['xiq_building_id'] = x.createBuilding(data)
     if data['xiq_building_id'] != 0:
         log_msg = f"Building {data['name']} was successfully created."
-        print(log_msg+'\n')
+        sys.stdout.write(GREEN)
+        sys.stdout.write(log_msg+'\n\n')
+        sys.stdout.write(RESET)
         logger.info(log_msg)
     del data['parent_id']
     rawData['building'].append(data)
@@ -344,7 +385,9 @@ if ekahau_building_exists == True:
         if floor['associated_building_id'] == None:
             log_msg = f"Floor '{floor['name']}' is not associated with the buildings in Ekahau so it will be skipped."
             logger.warning(log_msg)
-            print(log_msg)
+            sys.stdout.write(YELLOW)
+            sys.stdout.write(log_msg + '\n')
+            sys.stdout.write(RESET)
             continue
         filt = ek_building_df['building_id'] == floor['associated_building_id']
         xiq_building_id = int(ek_building_df.loc[filt, 'xiq_building_id'].values[0])
@@ -355,11 +398,15 @@ if ekahau_building_exists == True:
             floor_df = location_df.loc[filt]
             if floor['name'] in floor_df['name'].unique():
                 log_msg = f"There is already a floor with the name {floor['name']} in building {building_name}"
-                print(log_msg)
+                sys.stdout.write(YELLOW)
+                sys.stdout.write(log_msg + '\n')
+                sys.stdout.write(RESET)
                 print("Each floor has to have a unique name. Skipping creating this floor.")
                 response = yesNoLoop("Would you like to continue and place APs on floor that is already created?")
                 if response == 'n':
-                    print("script is exiting....")
+                    sys.stdout.write(RED)
+                    sys.stdout.write("script is exiting....\n")
+                    sys.stdout.write(RESET)
                     logger.info(f"User selected to not place APs on existing floor {floor['name']}.")
                     raise SystemExit
                 else:
@@ -374,7 +421,9 @@ if ekahau_building_exists == True:
             floor['map_name'] = ''
             log_msg = f"The image file for floor '{floor['name']}' is too big to upload using the API. Please upload {filename} located in the app/images folder and assign it to the floor."
             logger.error(log_msg)
-            print(log_msg)
+            sys.stdout.write(YELLOW)
+            sys.stdout.write(log_msg + '\n')
+            sys.stdout.write(RESET)
             saveImages = True
         if " " in floor['map_name']:
             oldFileName = imageFilePath + floor['map_name']
@@ -400,15 +449,19 @@ if ekahau_building_exists == True:
             data['name'] = checkNameLength(data['name'], type='floor')
         floor['xiq_floor_id'] = x.createFloor(data)
         if floor['xiq_floor_id'] != 0:
-            print(f"Floor {floor['name']} was successfully created.\n")
+            sys.stdout.write(GREEN)
+            sys.stdout.write(f"Floor {floor['name']} was successfully created.\n\n")
+            sys.stdout.write(RESET)
         
 else:
     for floor in rawData['floors']:
         if floor['associated_building_id'] != None:
             log_msg = ("Fatal Error with buildings and floors")
             logger.error(log_msg)
-            print(log_msg)
-            print("script Exiting....")
+            sys.stdout.write(RED)
+            sys.stdout.write(log_msg + '\n')
+            sys.stdout.write("script is exiting....\n")
+            sys.stdout.write(RESET)
             raise SystemExit
         # upload floorplan image
         print(f"Uploading {floor['map_name']} to XIQ.... ", end='')
@@ -425,7 +478,9 @@ else:
         floor['xiq_floor_id'] = x.createFloor(data)
         if floor['xiq_floor_id'] != 0:
             log_msg = (f"Floor {floor['name']} was successfully created.")
-            print(log_msg+'\n')
+            sys.stdout.write(GREEN)
+            sys.stdout.write(f"Floor {floor['name']} was successfully created.\n\n")
+            sys.stdout.write(RESET)
             logger.info(log_msg)        
 
 
@@ -444,16 +499,20 @@ duplicateSN = ek_ap_df['sn'].dropna().duplicated().any()
 if duplicateSN:
     log_msg = ("\nMultiple APs have the same serial numbers. Please fix and try again.")
     logger.warning(log_msg)
-    print(log_msg)
-    print("script is exiting....")
+    sys.stdout.write(RED)
+    sys.stdout.write(log_msg + '\n')
+    sys.stdout.write("script is exiting....")
+    sys.stdout.write(RESET)
     raise SystemExit
 nanValues = ek_ap_df[ek_ap_df['sn'].isna()]
 listOfSN = list(ek_ap_df['sn'].dropna().unique())
 if nanValues.name.size > 0 and len(listOfSN) == 0:
     log_msg = ("Serial numbers were not found for any AP. Please check to make sure they are added correctly and try again.")
     logger.warning(log_msg)
-    print("\n"+log_msg)
+    sys.stdout.write(YELLOW)
+    sys.stdout.write("\n"+log_msg + '\n')
     print("script is exiting....")
+    sys.stdout.write(RESET)
     raise SystemExit
 elif nanValues.name.size > 0:
     print("\nSerial numbers were not found for these APs. Please correct and run the script again if you would like to add them.\n  ", end='')
@@ -464,7 +523,9 @@ elif nanValues.name.size > 0:
 
 sizeofbatch = 100
 if len(listOfSN) > sizeofbatch:
-    print("\nThis script will work in batches of 100 APs.\n")
+    sys.stdout.write(YELLOW)
+    sys.stdout.write("\nThis script will work in batches of 100 APs.\n\n")
+    sys.stdout.write(RESET)
 
 apsToConfigure = []
 for i in range(0, len(listOfSN),sizeofbatch):
@@ -513,7 +574,10 @@ for i in range(0, len(listOfSN),sizeofbatch):
             updateApWithId(ap)
         if batch:
             print("Failed")
-            print("\nThese AP serial numbers were not able to be onboarded at this time. Please check the serial numbers and try again.\n  ", end='')
+            sys.stdout.write(YELLOW)
+            sys.stdout.write("\nThese AP serial numbers were not able to be onboarded at this time. Please check the serial numbers and try again.\n")
+            sys.stdout.write(RESET)
+            print("  ", end='')
             print(*batch, sep='\n  ')
             logger.warning(f"These APs could not be added. " + ",".join(batch))
             subtracted = [i for i in cleanBatch if i not in batch]
@@ -533,7 +597,9 @@ for i in range(0, len(listOfSN),sizeofbatch):
             print("Complete")
 
     elif apSNFound == False and cleanBatch:
-        print("There were no new APs found in this batch.")
+        sys.stdout.write(YELLOW)
+        sys.stdout.write("There were no new APs found in this batch.\n")
+        sys.stdout.write(RESET)
         logger.info("There were no new APs found in this batch.")
         response = yesNoLoop("Would you like to move these existing APs to the floorplan?")
         if response == 'n':
@@ -552,7 +618,9 @@ for ap_sn in apsToConfigure:
     response = x.renameAP(ap_df['xiq_id'].values[0], ap_df['name'].values[0])
     if response != "Success":
         log_msg = f"Failed to change name of {ap_df['xiq_id'].values[0]}"
-        print(log_msg)
+        sys.stdout.write(RED)
+        sys.stdout.write(log_msg + '\n')
+        sys.stdout.write(RESET)
         logger.error(log_msg)
     else:
         logger.info(f"Changed name of AP to {ap_df['name'].values[0]}")

@@ -142,7 +142,8 @@ def createBuildingInfo(location_id, parent_name):
         building_address = input("What is the address for this building? ")
         if building_name in building_df['name'].unique():
             sys.stdout.write(YELLOW)
-            sys.stdout.write("\nThis building name exists already. Please enter a new building name.\n\n") 
+            sys.stdout.write("\nThis building name already exists. Please enter a new building name.\n\n") 
+            sys.stdout.write(RESET)
             continue
         elif building_name.lower() == 'quit':
             sys.stdout.write(RED)

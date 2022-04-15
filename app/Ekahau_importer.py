@@ -301,8 +301,8 @@ class Ekahau:
             
         for ap_id, row in self.ap_df.iterrows():
             # collect needed data
-            if " : " in row['name']:
-                ap_name, ap_sn = [x.strip() for x in row['name'].split(" : ")]
+            if "::" in row['name']:
+                ap_name, ap_sn = [x.strip() for x in row['name'].split("::")]
             else:
                 ap_name = row['name']
                 ap_sn = ''

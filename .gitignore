@@ -24,3 +24,6 @@ app/images
 archive/*
 *.log
 /app/project/*
+~$*
+/Documentation
+City*

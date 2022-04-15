@@ -37,8 +37,8 @@ class apSerialCSV:
             logger.error(log_msg)
             raise ValueError(log_msg)
         for ap in self.ap_info:
-            if ap['name'] in csv_df['Access Point'].values:
-                filt = csv_df['Access Point'] == ap['name']
+            if ap['name'] in csv_df['AP Name'].values:
+                filt = csv_df['AP Name'] == ap['name']
                 ap['sn'] = (csv_df.loc[filt, 'Serial Number'].values[0])
             else:
                 unmatched_ap_info_ap.append(ap['name'])
@@ -46,7 +46,7 @@ class apSerialCSV:
                 logger.info(log_msg)
                 continue
             ap_data.append(ap)
-        for ap in csv_df['Access Point']:
+        for ap in csv_df['AP Name']:
             if not any(d['name'] == ap for d in self.ap_info):
                 unmatched_csv_ap.append(ap)
                 log_msg = (f"{ap} was found in {self.filename} but didn't match name of any known AP")

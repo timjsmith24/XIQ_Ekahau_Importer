@@ -25,5 +25,5 @@ archive/*
 *.log
 /app/project/*
 ~$*
-/Documentation
+.DS_Store
 City*

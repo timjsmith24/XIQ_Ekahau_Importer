@@ -294,7 +294,7 @@ class XIQ:
 
     #BUILDINGS
     def __buildLocationDf(self, location, pname = 'Global'):
-        if location['parent_id'] == None:
+        if 'parent_id' not in location:
             temp_df = pd.DataFrame([{'id': location['id'], 'name':location['name'], 'type': 'Global', 'parent':pname}])
             self.locationTree_df = pd.concat([self.locationTree_df, temp_df], ignore_index=True)
         else:
@@ -466,12 +466,3 @@ class XIQ:
         url = f"{self.URL}/devices/{ap_id}/location"
         response = self.__setup_put_api_call(info,url,payload=payload)
         return response
-#MAIN
-'''
-username = "tismith@extremenetworks.com"
-password = "HEAX7nong5gru@prog"
-
-x = XIQ(username,password)
-#location_df = x.gatherLocations()
-
-'''

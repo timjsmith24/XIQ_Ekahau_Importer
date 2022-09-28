@@ -1,16 +1,8 @@
 /.DS_Store
 /.vscode
-/2991.esx
 /Ekahau_Importer.code-workspace
 /Ekahau_XIQ.ipynb
-/Mayflower.esx
-/Mayflower2.esx
 /__pycache__
-/fileupload.py
-/mayflower2.csv
-/simple.esx
-/simpleSite.csv
-/store 5261.esx
 /test.py
 /venv
 app/__init__.py
@@ -25,4 +17,6 @@ archive/*
 /app/project/*
 ~$*
 .DS_Store
-City*
+CSV_Files/*
+Ekahau_Files/*
+Mayflower_1102.esx

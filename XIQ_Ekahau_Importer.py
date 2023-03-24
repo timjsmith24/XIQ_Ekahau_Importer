@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from ctypes import sizeof
-from curses import raw
 import logging
 import argparse
 import time
@@ -9,10 +7,8 @@ import os
 import inspect
 import shutil
 import getpass
-from cv2 import isContourConvex
 import pandas as pd
 import numpy as np
-from pprint import pprint
 from app.Ekahau_importer import Ekahau
 from app.ap_csv_importer import apSerialCSV
 from mapImportLogger import logger

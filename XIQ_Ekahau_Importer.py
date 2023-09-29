@@ -57,22 +57,23 @@ def checkNameLength(name, type):
     return name
 
 
-def getParentLocation(building="new"):
-    # Get Parent location
-    response = yesNoLoop(f"Would you like to create the {building} building under a sub location?")
+def getParentSite(building="new"):
+    # Get Parent Site
+    print("Each building needs to be part of a site in XIQ.")
+    response = yesNoLoop(f"Would you like to use an existing Site for the {building} building?")
     if response == 'y':
-        filt = location_df['type'] == 'Location'
-        sublocation_df = location_df.loc[filt]
+        filt = location_df['type'] == 'Site'
+        site_df = location_df.loc[filt]
         validResponse = False
         while validResponse != True:
             count = 0
             countmap = {}
-            print("Which location would you like the building to be under?")
-            for loc_id, location_info in sublocation_df.iterrows():
-                countmap[count] = loc_id
-                print(f"   {count}. {location_info['name']}")
+            print("Which Site would you like the building to be under?")
+            for site_id, site_info in site_df.iterrows():
+                countmap[count] = site_id
+                print(f"   {count}. {site_info['name']}")
                 count+=1
-            print(f"   {count}. Create a new location")
+            print(f"   {count}. Create a new Site")
             selection = input(f"Please enter 0 - {count}: ")
             try:
                 selection = int(selection)
@@ -83,53 +84,53 @@ def getParentLocation(building="new"):
                 continue
             if 0 <= selection < count:
                 validResponse = True
-                location_id = (sublocation_df.loc[countmap[selection],'id'])
-                parent_name = (sublocation_df.loc[countmap[selection],'name'])
+                location_id = (site_df.loc[countmap[selection],'id'])
+                parent_name = (site_df.loc[countmap[selection],'name'])
             elif selection == count:
                 validResponse = True
                 filt = location_df['type'] == 'Global'
                 parent_id = location_df.loc[filt, 'id'].values[0]
-                location_id, parent_name = createLocation(parent_id)
+                site_id, parent_name = createSite(parent_id)
     elif response == 'n':
         filt = location_df['type'] == 'Global'
-        location_id = location_df.loc[filt, 'id'].values[0]
-        parent_name = location_df.loc[filt, 'name'].values[0]
-    return location_id, parent_name 
+        parent_id = location_df.loc[filt, 'id'].values[0]
+        site_id, parent_name = createSite(parent_id)
+    return parent_id
 
-def createLocation(parent_id):
+def createSite(parent_id):
     validResponse = False
     while validResponse != True:
-        location_name = input("What would you like the name of this location to be? ")
-        if location_name in sublocation_df['name'].unique():
+        site_name = input("What would you like the name of this Site to be? ")
+        if site_name in Site_df['name'].unique():
             sys.stdout.write(YELLOW)
-            sys.stdout.write("\nThis location name exists already. Please enter a new location name.\n") 
+            sys.stdout.write("\nThis site name exists already. Please enter a new site name.\n") 
             sys.stdout.write(RESET)
             continue
-        elif location_name.lower() == 'quit':
+        elif site_name.lower() == 'quit':
             sys.stdout.write(RED)
             sys.stdout.write("script is exiting....\n")
             sys.stdout.write(RESET)
             raise SystemExit
-        elif not location_name.strip():
-            print("\nPlease enter a new location name.\n") 
+        elif not site_name.strip():
+            print("\nPlease enter a new site name.\n") 
             continue
-        location_name = checkNameLength(location_name, type='location')
-        print(f"\nLocation '{location_name}' will be created.")
+        site_name = checkNameLength(site_name, type='location')
+        print(f"\nSite '{site_name}' will be created.")
         response = yesNoLoop("Would you like to proceed?")
         if response == 'y':
             validResponse = True
-            data = {"parent_id": parent_id, "name": location_name}
+            data = {"parent_id": parent_id, "name": site_name}
         elif response == 'n':
             sys.stdout.write(RED)
             sys.stdout.write("script is exiting....\n")
             sys.stdout.write(RESET)
             raise SystemExit
-    subLocationId = x.createLocation(location_name, data)
-    if subLocationId != 0:
+    siteId = x.createSite(site_name, data)
+    if siteId != 0:
         sys.stdout.write(GREEN)
-        sys.stdout.write(f"Location {location_name} was successfully created.\n\n")
+        sys.stdout.write(f"Site {site_name} was successfully created.\n\n")
         sys.stdout.write(RESET)
-    return subLocationId, location_name
+    return siteId, site_name
 
 def createBuildingInfo(location_id, parent_name):
     validResponse = False
@@ -284,8 +285,8 @@ ekahau_building_exists = False
 location_df = x.gatherLocations()
 filt = location_df['type'] == 'BUILDING'
 building_df = location_df.loc[filt]
-filt = location_df['type'] == 'Location'
-sublocation_df = location_df.loc[filt]
+filt = location_df['type'] == 'Site'
+Site_df = location_df.loc[filt]
 
 # Check Building
 if rawData['building']:
@@ -306,8 +307,8 @@ if rawData['building']:
                 logger.info(f"There is already a building with the name {building['name']} that will be used")
             else:
                 print('Ok we will attempt to create a new building but it will have to be renamed.')
-                location_id, parent_name = getParentLocation()
-                data = createBuildingInfo(location_id,parent_name)
+                site_id, parent_name = getParentSite()
+                data = createBuildingInfo(site_id,parent_name)
                 building['name'] = data['name']
                 building['xiq_building_id'] = x.createBuilding(data)
                 if building['xiq_building_id'] != 0:
@@ -319,8 +320,8 @@ if rawData['building']:
             response = yesNoLoop("Would you like to change the name?")
             if response == 'y':
                 print('Ok we will attempt to create a new building but it will have to be renamed.')
-                location_id, parent_name = getParentLocation()
-                data = createBuildingInfo(location_id,parent_name)
+                site_id, parent_name = getParentSite()
+                data = createBuildingInfo(site_id,parent_name)
                 building['name'] = data['name']
                 building['xiq_building_id'] = x.createBuilding(data)
                 if building['xiq_building_id'] != 0:
@@ -331,12 +332,12 @@ if rawData['building']:
                     logger.info(log_msg)
             else:
                 data = building.copy()
-                location_id, parent_name = getParentLocation(building=building['name'])
+                site_id, parent_name = getParentSite(building=building['name'])
                 del data['building_id']
                 del data['xiq_building_id']
                 if not data['address'].strip():
                     data['address'] = 'Unknown Address'
-                data['parent_id'] = f"{location_id}"
+                data['parent_id'] = f"{site_id}"
                 if len(data['name']) > 32:
                     data['name'] = checkNameLength(data['name'], type='building')
                 building['xiq_building_id'] = x.createBuilding(data)
@@ -349,12 +350,12 @@ if rawData['building']:
 
         else:
             data = building.copy()
-            location_id, parent_name = getParentLocation(building=building['name'])
+            site_id, parent_name = getParentSite(building=building['name'])
             del data['building_id']
             del data['xiq_building_id']
             if not data['address'].strip():
                 data['address'] = 'Unknown Address'
-            data['parent_id'] = f"{location_id}"
+            data['parent_id'] = f"{site_id}"
             if len(data['name']) > 32:
                 data['name'] = checkNameLength(data['name'], type='building')
             building['xiq_building_id'] = x.createBuilding(data)
@@ -367,8 +368,8 @@ if rawData['building']:
             
     
 if xiq_building_exist == False and ekahau_building_exists == False: 
-    location_id, parent_name = getParentLocation()
-    data = createBuildingInfo(location_id,parent_name)
+    site_id, parent_name = getParentSite()
+    data = createBuildingInfo(site_id,parent_name)
     data['xiq_building_id'] = x.createBuilding(data)
     if data['xiq_building_id'] != 0:
         log_msg = f"Building {data['name']} was successfully created."

@@ -377,7 +377,7 @@ class XIQ:
         for location in response:
             self.__buildLocationDf(location)
         return (self.locationTree_df)
-
+    # Todo - remove createLocation and create createSite
     def createLocation(self, location_name, data):
         info=f"create location '{location_name}'"
         url = "{}/locations".format(self.URL)

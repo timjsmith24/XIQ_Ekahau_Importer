@@ -377,13 +377,24 @@ class XIQ:
         for location in response:
             self.__buildLocationDf(location)
         return (self.locationTree_df)
-    # Todo - remove createLocation and create createSite
+
+    # Create Site_Group
     def createLocation(self, location_name, data):
-        info=f"create location '{location_name}'"
+        info=f"create Site Group '{location_name}'"
         url = "{}/locations".format(self.URL)
         payload = json.dumps(data)
         response = self.__setup_post_api_call(info,url,payload)
         return response['id']
+    
+    # Create Site
+    def createSite(self, site_name, data):
+        info=f"create Site '{site_name}'"
+        print(info)
+        url = "{}/locations/site".format(self.URL)
+        payload = json.dumps(data)
+        response = self.__setup_post_api_call(info,url,payload)
+        return response['id']
+
 
 
     

@@ -62,7 +62,7 @@ def getParentSite(building="new"):
     print("Each building needs to be part of a site in XIQ.")
     response = yesNoLoop(f"Would you like to use an existing Site for the {building} building?")
     if response == 'y':
-        filt = location_df['type'] == 'Site'
+        filt = location_df['type'] == 'SITE'
         site_df = location_df.loc[filt]
         validResponse = False
         while validResponse != True:
@@ -84,7 +84,7 @@ def getParentSite(building="new"):
                 continue
             if 0 <= selection < count:
                 validResponse = True
-                location_id = (site_df.loc[countmap[selection],'id'])
+                parent_id = (site_df.loc[countmap[selection],'id'])
                 parent_name = (site_df.loc[countmap[selection],'name'])
             elif selection == count:
                 validResponse = True
@@ -95,9 +95,83 @@ def getParentSite(building="new"):
         filt = location_df['type'] == 'Global'
         parent_id = location_df.loc[filt, 'id'].values[0]
         site_id, parent_name = createSite(parent_id)
-    return parent_id
+    return parent_id, parent_name
+
+def selectSite_group(parent_id):
+    response = yesNoLoop(f"Would you like to use an existing Site Group for the new Site?")
+    if response == 'y':
+        validResponse = False
+        while validResponse != True:
+            count = 0
+            countmap = {}
+            print("Which Site Group would you like the Site to be under?")
+            for site_group_id, site_group_info in site_group_df.iterrows():
+                countmap[count] = site_group_id
+                print(f"   {count}. {site_group_info['name']}")
+                count+=1
+            print(f"   {count}. Create a new Site Group")
+            count += 1
+            print(f"   {count}. Cancel. Do not create a Site Group")
+            selection = input(f"Please enter 0 - {count}: ")
+            try:
+                selection = int(selection)
+            except:
+                sys.stdout.write(YELLOW)
+                sys.stdout.write("Please enter a valid response!!\n")
+                sys.stdout.write(RESET)
+                continue
+            if 0 <= selection < count -1:
+                validResponse = True
+                location_id = (site_group_df.loc[countmap[selection],'id'])
+            elif selection == count -1:
+                validResponse = True
+                location_id = createSiteGroup(parent_id)
+            elif selection == count:
+                location_id = parent_id
+    elif response == 'n':
+        location_id = createSiteGroup(parent_id)
+    return location_id, 
+
+def createSiteGroup(parent_id):
+    validResponse = False
+    while validResponse != True:
+        site_group_name = input("What would you like the name of this Site Group to be? ")
+        if site_group_name in site_group_df['name'].unique():
+            sys.stdout.write(YELLOW)
+            sys.stdout.write("\nThis site group name exists already. Please enter a new site name.\n") 
+            sys.stdout.write(RESET)
+            continue
+        elif site_group_name.lower() == 'quit':
+            sys.stdout.write(RED)
+            sys.stdout.write("script is exiting....\n")
+            sys.stdout.write(RESET)
+            raise SystemExit
+        elif not site_group_name.strip():
+            print("\nPlease enter a new site group name.\n") 
+            continue
+        site_group_name = checkNameLength(site_group_name, type='site')
+        print(f"\nSite group '{site_group_name}' will be created.")
+        response = yesNoLoop("Would you like to proceed?")
+        if response == 'y':
+            validResponse = True
+            data = {"parent_id": parent_id, "name": site_group_name}
+        elif response == 'n':
+            sys.stdout.write(RED)
+            sys.stdout.write("script is exiting....\n")
+            sys.stdout.write(RESET)
+            raise SystemExit
+    siteGroupId = x.createLocation(site_group_name, data)
+    if siteGroupId != 0:
+        sys.stdout.write(GREEN)
+        sys.stdout.write(f"Site {site_group_name} was successfully created.\n\n")
+        sys.stdout.write(RESET)
+    return siteGroupId
+
 
 def createSite(parent_id):
+    response = yesNoLoop(f"Would you like to add the new Site to a Site Group?")
+    if response == 'y':
+        parent_id = selectSite_group(parent_id)
     validResponse = False
     while validResponse != True:
         site_name = input("What would you like the name of this Site to be? ")
@@ -114,7 +188,7 @@ def createSite(parent_id):
         elif not site_name.strip():
             print("\nPlease enter a new site name.\n") 
             continue
-        site_name = checkNameLength(site_name, type='location')
+        site_name = checkNameLength(site_name, type='site')
         print(f"\nSite '{site_name}' will be created.")
         response = yesNoLoop("Would you like to proceed?")
         if response == 'y':
@@ -285,8 +359,10 @@ ekahau_building_exists = False
 location_df = x.gatherLocations()
 filt = location_df['type'] == 'BUILDING'
 building_df = location_df.loc[filt]
-filt = location_df['type'] == 'Site'
+filt = location_df['type'] == 'SITE'
 Site_df = location_df.loc[filt]
+filt = location_df['type'] == 'Site_Group'
+site_group_df = location_df.loc[filt]
 
 # Check Building
 if rawData['building']:

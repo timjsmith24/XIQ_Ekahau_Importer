@@ -62,8 +62,6 @@ def getParentSite(building="new"):
     print("Each building needs to be part of a site in XIQ.")
     response = yesNoLoop(f"Would you like to use an existing Site for the {building} building?")
     if response == 'y':
-        filt = location_df['type'] == 'SITE'
-        site_df = location_df.loc[filt]
         validResponse = False
         while validResponse != True:
             count = 0

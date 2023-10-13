@@ -67,7 +67,7 @@ def getParentSite(building="new"):
             count = 0
             countmap = {}
             print("Which Site would you like the building to be under?")
-            for site_id, site_info in site_df.iterrows():
+            for site_id, site_info in Site_df.iterrows():
                 countmap[count] = site_id
                 print(f"   {count}. {site_info['name']}")
                 count+=1
@@ -82,8 +82,8 @@ def getParentSite(building="new"):
                 continue
             if 0 <= selection < count:
                 validResponse = True
-                parent_id = (site_df.loc[countmap[selection],'id'])
-                parent_name = (site_df.loc[countmap[selection],'name'])
+                parent_id = (Site_df.loc[countmap[selection],'id'])
+                parent_name = (Site_df.loc[countmap[selection],'name'])
             elif selection == count:
                 validResponse = True
                 filt = location_df['type'] == 'Global'

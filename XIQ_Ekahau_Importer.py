@@ -82,18 +82,18 @@ def getParentSite(building="new"):
                 continue
             if 0 <= selection < count:
                 validResponse = True
-                parent_id = (Site_df.loc[countmap[selection],'id'])
-                parent_name = (Site_df.loc[countmap[selection],'name'])
+                site_id = (Site_df.loc[countmap[selection],'id'])
+                site_name = (Site_df.loc[countmap[selection],'name'])
             elif selection == count:
                 validResponse = True
                 filt = location_df['type'] == 'Global'
                 parent_id = location_df.loc[filt, 'id'].values[0]
-                site_id, parent_name = createSite(parent_id)
+                site_id, site_name = createSite(parent_id)
     elif response == 'n':
         filt = location_df['type'] == 'Global'
         parent_id = location_df.loc[filt, 'id'].values[0]
-        site_id, parent_name = createSite(parent_id)
-    return parent_id, parent_name
+        site_id, site_name = createSite(parent_id)
+    return site_id, site_name
 
 def selectSite_group(parent_id):
     response = yesNoLoop(f"Would you like to use an existing Site Group for the new Site?")
@@ -125,18 +125,23 @@ def selectSite_group(parent_id):
                 validResponse = True
                 location_id = createSiteGroup(parent_id)
             elif selection == count:
+                validResponse = True
                 location_id = parent_id
     elif response == 'n':
         location_id = createSiteGroup(parent_id)
-    return location_id, 
+    return location_id
 
 def createSiteGroup(parent_id):
     validResponse = False
     while validResponse != True:
+        print("Each site group, site, and building will have to have a unique name.")
         site_group_name = input("What would you like the name of this Site Group to be? ")
-        if site_group_name in site_group_df['name'].unique():
+        if site_group_name in location_df['name'].unique():
+            filt = location_df['name'] == site_group_name
+            type = location_df.loc[filt,'type'].values[0]
+            print(type)
             sys.stdout.write(YELLOW)
-            sys.stdout.write("\nThis site group name exists already. Please enter a new site name.\n") 
+            sys.stdout.write(f"\nThis name exists already as a {type}. Please enter a new site group name.\n") 
             sys.stdout.write(RESET)
             continue
         elif site_group_name.lower() == 'quit':
@@ -172,10 +177,13 @@ def createSite(parent_id):
         parent_id = selectSite_group(parent_id)
     validResponse = False
     while validResponse != True:
+        print("Each site group, site, and building will have to have a unique name.")
         site_name = input("What would you like the name of this Site to be? ")
-        if site_name in Site_df['name'].unique():
+        if site_name in location_df['name'].unique():
+            filt = location_df['name'] == site_name
+            type = location_df.loc[filt,'type'].values[0]
             sys.stdout.write(YELLOW)
-            sys.stdout.write("\nThis site name exists already. Please enter a new site name.\n") 
+            sys.stdout.write(f"\nThis name exists already as a {type}. Please enter a new site name.\n") 
             sys.stdout.write(RESET)
             continue
         elif site_name.lower() == 'quit':
@@ -204,14 +212,16 @@ def createSite(parent_id):
         sys.stdout.write(RESET)
     return siteId, site_name
 
-def createBuildingInfo(location_id, parent_name):
+def createBuildingInfo(site_id, site_name):
     validResponse = False
     while validResponse != True:
+        print("Each site group, site, and building will have to have a unique name.")
         building_name = input("What would you like the name of the building to be? ")
-        building_address = input("What is the address for this building? ")
-        if building_name in building_df['name'].unique():
+        if building_name in location_df['name'].unique():
+            filt = location_df['name'] == building_name
+            type = location_df.loc[filt,'type'].values[0]
             sys.stdout.write(YELLOW)
-            sys.stdout.write("\nThis building name already exists. Please enter a new building name.\n\n") 
+            sys.stdout.write(f"\nThis name already exists as a {type}. Please enter a new building name.\n\n") 
             sys.stdout.write(RESET)
             continue
         elif building_name.lower() == 'quit':
@@ -222,14 +232,15 @@ def createBuildingInfo(location_id, parent_name):
         elif not building_name.strip():
             print("\nPlease enter a new building name.\n") 
             continue
+        building_name = checkNameLength(building_name, type='building')
+        building_address = input("What is the address for this building? ")
         if not building_address.strip():
             building_address = 'Unknown Address'
-        building_name = checkNameLength(building_name, type='building')
-        print(f"\n\nBuilding '{building_name}' with address '{building_address}' will be created under location '{parent_name}'.")
+        print(f"\n\nBuilding '{building_name}' with address '{building_address}' will be created under location '{site_name}'.")
         response = yesNoLoop("Would you like to proceed?")
         if response == 'y':
             validResponse = True
-            data = {"parent_id": location_id, "name": building_name, "address": building_address}
+            data = {"parent_id": site_id, "name": building_name, "address": building_address}
             return data
         elif response == 'n':
             sys.stdout.write(RED)
@@ -381,8 +392,8 @@ if rawData['building']:
                 logger.info(f"There is already a building with the name {building['name']} that will be used")
             else:
                 print('Ok we will attempt to create a new building but it will have to be renamed.')
-                site_id, parent_name = getParentSite()
-                data = createBuildingInfo(site_id,parent_name)
+                site_id, site_name = getParentSite()
+                data = createBuildingInfo(site_id,site_name)
                 building['name'] = data['name']
                 building['xiq_building_id'] = x.createBuilding(data)
                 if building['xiq_building_id'] != 0:
@@ -394,8 +405,8 @@ if rawData['building']:
             response = yesNoLoop("Would you like to change the name?")
             if response == 'y':
                 print('Ok we will attempt to create a new building but it will have to be renamed.')
-                site_id, parent_name = getParentSite()
-                data = createBuildingInfo(site_id,parent_name)
+                site_id, site_name = getParentSite()
+                data = createBuildingInfo(site_id,site_name)
                 building['name'] = data['name']
                 building['xiq_building_id'] = x.createBuilding(data)
                 if building['xiq_building_id'] != 0:
@@ -406,13 +417,16 @@ if rawData['building']:
                     logger.info(log_msg)
             else:
                 data = building.copy()
-                site_id, parent_name = getParentSite(building=building['name'])
+                site_id, site_name = getParentSite(building=building['name'])
                 del data['building_id']
                 del data['xiq_building_id']
                 if not data['address'].strip():
                     data['address'] = 'Unknown Address'
                 data['parent_id'] = f"{site_id}"
-                if len(data['name']) > 32:
+                if data['name'] in building_df['name'].unique() or data['name'] in Site_df['name'].unique():
+                    print(f"{data['name']} has the same name as an existing sites. Buildings must have a unique name from other buildings and sites.")
+                    data = createBuildingInfo(site_id,site_name)
+                elif len(data['name']) > 32:
                     data['name'] = checkNameLength(data['name'], type='building')
                 building['xiq_building_id'] = x.createBuilding(data)
                 if building['xiq_building_id'] != 0:
@@ -424,13 +438,16 @@ if rawData['building']:
 
         else:
             data = building.copy()
-            site_id, parent_name = getParentSite(building=building['name'])
+            site_id, site_name = getParentSite(building=building['name'])
             del data['building_id']
             del data['xiq_building_id']
             if not data['address'].strip():
                 data['address'] = 'Unknown Address'
             data['parent_id'] = f"{site_id}"
-            if len(data['name']) > 32:
+            if data['name'] in Site_df['name'].unique():
+                print(f"{data['name']} has the same name as an existing sites. Buildings must have a unique name from other buildings and sites.")
+                data = createBuildingInfo(site_id,site_name)
+            elif len(data['name']) > 32:
                 data['name'] = checkNameLength(data['name'], type='building')
             building['xiq_building_id'] = x.createBuilding(data)
             if building['xiq_building_id'] != 0:
@@ -442,8 +459,8 @@ if rawData['building']:
             
     
 if xiq_building_exist == False and ekahau_building_exists == False: 
-    site_id, parent_name = getParentSite()
-    data = createBuildingInfo(site_id,parent_name)
+    site_id, site_name = getParentSite()
+    data = createBuildingInfo(site_id,site_name)
     data['xiq_building_id'] = x.createBuilding(data)
     if data['xiq_building_id'] != 0:
         log_msg = f"Building {data['name']} was successfully created."

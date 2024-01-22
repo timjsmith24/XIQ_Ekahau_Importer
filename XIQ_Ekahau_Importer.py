@@ -139,7 +139,6 @@ def createSiteGroup(parent_id):
         if site_group_name in location_df['name'].unique():
             filt = location_df['name'] == site_group_name
             type = location_df.loc[filt,'type'].values[0]
-            print(type)
             sys.stdout.write(YELLOW)
             sys.stdout.write(f"\nThis name exists already as a {type}. Please enter a new site group name.\n") 
             sys.stdout.write(RESET)
@@ -165,9 +164,11 @@ def createSiteGroup(parent_id):
             raise SystemExit
     siteGroupId = x.createLocation(site_group_name, data)
     if siteGroupId != 0:
+        log_msg = (f"Site {site_group_name} was successfully created.")
         sys.stdout.write(GREEN)
-        sys.stdout.write(f"Site {site_group_name} was successfully created.\n\n")
+        sys.stdout.write(log_msg+'\n\n')
         sys.stdout.write(RESET)
+        logger.info(log_msg)
     return siteGroupId
 
 
@@ -195,11 +196,33 @@ def createSite(parent_id):
             print("\nPlease enter a new site name.\n") 
             continue
         site_name = checkNameLength(site_name, type='site')
+        response = yesNoLoop("Is this Site in the US? ")
+        if response == 'y':
+            country_code = 840
+        else:
+            validResponse = False
+            alpha_list = x.collectCountries()
+            while not validResponse:
+                alpha_code = input("Please enter the 2 character abbreviation for the country you would like to use. ")
+                cc = [d for d in alpha_list if d['alpha2_code'] == alpha_code.upper()]
+                if cc:
+                    print(f"Country '{cc[0]['alpha2_code']} - {cc[0]['short_name']} - {cc[0]['country_code']}' was found.")
+                    response = yesNoLoop('Is this correct? ')
+                    if response == 'y':
+                        country_code = cc[0]['country_code']
+                        validResponse = True
+                else:
+                    print(f"'{alpha_code}' is an invalid response.")
+                    response = yesNoLoop("Would you like to see a list of valid responses?")
+                    if response == 'y':
+                        cdata = [{d['alpha2_code']:d['short_name']} for d in alpha_list]
+                        for country in cdata:
+                            print(country)
         print(f"\nSite '{site_name}' will be created.")
         response = yesNoLoop("Would you like to proceed?")
         if response == 'y':
             validResponse = True
-            data = {"parent_id": parent_id, "name": site_name}
+            data = {"parent_id": parent_id, "name": site_name, "country_code":country_code }
         elif response == 'n':
             sys.stdout.write(RED)
             sys.stdout.write("script is exiting....\n")
@@ -207,9 +230,11 @@ def createSite(parent_id):
             raise SystemExit
     siteId = x.createSite(site_name, data)
     if siteId != 0:
+        log_msg = f"Site {site_name} was successfully created."
         sys.stdout.write(GREEN)
-        sys.stdout.write(f"Site {site_name} was successfully created.\n\n")
+        sys.stdout.write(log_msg+'\n\n')
         sys.stdout.write(RESET)
+        logger.info(log_msg)
     return siteId, site_name
 
 def createBuildingInfo(site_id, site_name):
@@ -233,10 +258,26 @@ def createBuildingInfo(site_id, site_name):
             print("\nPlease enter a new building name.\n") 
             continue
         building_name = checkNameLength(building_name, type='building')
-        building_address = input("What is the address for this building? ")
-        if not building_address.strip():
-            building_address = 'Unknown Address'
-        print(f"\n\nBuilding '{building_name}' with address '{building_address}' will be created under location '{site_name}'.")
+        address_response = yesNoLoop("Would you like to add an address for the building?")
+        if address_response == 'y':
+            state = input("What state is the building in? ")
+            city = input("Which city is the building in? ")
+            address = input("What is the street address for the building? ")
+            postal_code = input("What is the postal code for the building? ")
+            building_address = {
+                "address": address,
+                "city": city,
+                "state": state,
+                "postal_code": postal_code
+            }
+        else:
+            building_address = {
+                            "address": "Unknown",
+                            "city": "Unknown",
+                            "state": "Unknown",
+                            "postal_code": "Unknown"
+                        }
+        print(f"\n\nBuilding '{building_name}' with address '{', '.join(building_address.values())}' will be created under location '{site_name}'.")
         response = yesNoLoop("Would you like to proceed?")
         if response == 'y':
             validResponse = True
@@ -257,7 +298,7 @@ def updateApWithId(ap):
 ## EKAHAU IMPORT
 filename = str(input("Please enter the Ekahau File: ")).strip()
 #filename = "Mayflower.esx"
-filename = filename.replace("\ ", " ")
+filename = filename.replace("\\ ", " ")
 filename = filename.replace("'", "")
 
 saveImages = False
@@ -421,7 +462,12 @@ if rawData['building']:
                 del data['building_id']
                 del data['xiq_building_id']
                 if not data['address'].strip():
-                    data['address'] = 'Unknown Address'
+                    data['address'] = {
+                            "address": "Unknown",
+                            "city": "Unknown",
+                            "state": "Unknown",
+                            "postal_code": "Unknown"
+                        }
                 data['parent_id'] = f"{site_id}"
                 if data['name'] in building_df['name'].unique() or data['name'] in Site_df['name'].unique():
                     print(f"{data['name']} has the same name as an existing sites. Buildings must have a unique name from other buildings and sites.")
@@ -441,8 +487,13 @@ if rawData['building']:
             site_id, site_name = getParentSite(building=building['name'])
             del data['building_id']
             del data['xiq_building_id']
-            if not data['address'].strip():
-                data['address'] = 'Unknown Address'
+            if not data['address']:
+                data['address'] = {
+                            "address": "Unknown",
+                            "city": "Unknown",
+                            "state": "Unknown",
+                            "postal_code": "Unknown"
+                        }
             data['parent_id'] = f"{site_id}"
             if data['name'] in Site_df['name'].unique():
                 print(f"{data['name']} has the same name as an existing sites. Buildings must have a unique name from other buildings and sites.")
@@ -702,37 +753,37 @@ for i in range(0, len(listOfSN),sizeofbatch):
             logger.info("User selected to move these APs anyways.")
             apsToConfigure.extend(subtracted)
 
+if apsToConfigure:
+    print("Starting to rename APs and move them")
+    for ap_sn in apsToConfigure:
+        filt = ek_ap_df['sn'] == ap_sn
+        ap_df = ek_ap_df[filt]
+        # rename AP
+        response = x.renameAP(ap_df['xiq_id'].values[0], ap_df['name'].values[0])
+        if response != "Success":
+            log_msg = f"Failed to change name of {ap_df['xiq_id'].values[0]}"
+            sys.stdout.write(RED)
+            sys.stdout.write(log_msg + '\n')
+            sys.stdout.write(RESET)
+            logger.error(log_msg)
+        else:
+            logger.info(f"Changed name of AP to {ap_df['name'].values[0]}")
+        data = {
+            "location_id" : ap_df['location_id'].values[0],
+            "x" : ap_df['x'].values[0],
+            "y" : ap_df['y'].values[0],
+            "latitude": 0,
+            "longitude": 0
+        }
+        response = x.changeAPLocation(ap_df['xiq_id'].values[0], data)
+        if response != "Success":
+            log_msg = (f"Failed to set location of {ap_df['xiq_id'].values[0]}")
+            print(log_msg)
+            logging.error(log_msg)
+        else:
+            logger.info(f"Set location for {ap_df['name'].values[0]}")
 
-print("Starting to rename APs and move them")
-for ap_sn in apsToConfigure:
-    filt = ek_ap_df['sn'] == ap_sn
-    ap_df = ek_ap_df[filt]
-    # rename AP
-    response = x.renameAP(ap_df['xiq_id'].values[0], ap_df['name'].values[0])
-    if response != "Success":
-        log_msg = f"Failed to change name of {ap_df['xiq_id'].values[0]}"
-        sys.stdout.write(RED)
-        sys.stdout.write(log_msg + '\n')
-        sys.stdout.write(RESET)
-        logger.error(log_msg)
-    else:
-        logger.info(f"Changed name of AP to {ap_df['name'].values[0]}")
-    data = {
-        "location_id" : ap_df['location_id'].values[0],
-        "x" : ap_df['x'].values[0],
-        "y" : ap_df['y'].values[0],
-        "latitude": 0,
-        "longitude": 0
-    }
-    response = x.changeAPLocation(ap_df['xiq_id'].values[0], data)
-    if response != "Success":
-        log_msg = (f"Failed to set location of {ap_df['xiq_id'].values[0]}")
-        print(log_msg)
-        logging.error(log_msg)
-    else:
-        logger.info(f"Set location for {ap_df['name'].values[0]}")
-
-print("Finished renaming APs and moving them")
+    print("Finished renaming APs and moving them")
 
 if saveImages == False:
     shutil.rmtree(imageFilePath)

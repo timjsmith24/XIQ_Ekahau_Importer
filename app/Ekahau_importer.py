@@ -238,11 +238,17 @@ class Ekahau:
 
         if self.buildingexists:
             # Building data
+            address_keys = ['address','city','state','postal_code']
             for building_id, row in self.building_df.iterrows():
+                address_list = self.project_info['location'].split(",")
+                res = dict(zip(address_keys, address_list))
+                for element in address_keys:
+                    if element not in res:
+                        res[element] = "Unknown"
                 data = {
                     'building_id': building_id,
                     'name': row['name'],
-                    'address': self.project_info['location'],
+                    'address': res,
                     'xiq_building_id' : None
                 }
                 self.EkahauData['building'].append(data)

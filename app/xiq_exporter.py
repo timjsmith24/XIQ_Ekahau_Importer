@@ -374,8 +374,19 @@ class XIQ:
         info=f"gather location tree"
         url = "{}/locations/tree".format(self.URL)
         response = self.__setup_get_api_call(info,url)
-        for location in response:
-            self.__buildLocationDf(location)
+        if response:
+            for location in response:
+                self.__buildLocationDf(location)
+        else:
+            self.__getVIQInfo()
+            info = "Initializing Location"
+            url = '{}/locations/:init'.format(self.URL)
+            data = {'organization': self.viqName,
+                    'country': 'UNITED_STATES_840'}
+            payload = json.dumps(data)
+            response = self.__setup_post_api_call(info,url,payload)
+            logger.info(f"Initialized location {response['name']}")
+            self.__buildLocationDf(response)
         return (self.locationTree_df)
 
     # Create Site_Group
@@ -389,14 +400,17 @@ class XIQ:
     # Create Site
     def createSite(self, site_name, data):
         info=f"create Site '{site_name}'"
-        print(info)
         url = "{}/locations/site".format(self.URL)
         payload = json.dumps(data)
         response = self.__setup_post_api_call(info,url,payload)
         return response['id']
 
-
-
+    #Countries
+    def collectCountries(self):
+        info="Collecting Country info"
+        url = "{}/countries".format(self.URL)
+        response = self.__setup_get_api_call(info,url)
+        return response
     
     #BUILDINGS
     def createBuilding(self, data):

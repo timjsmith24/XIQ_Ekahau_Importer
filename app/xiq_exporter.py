@@ -508,36 +508,6 @@ class XIQ:
         return response
     
     #APS
-    '''
-    def checkApsBySerial(self, listOfSerials):
-        info="check APs by Serial Number"
-        url = "{}/devices?limit=100&sns=".format(self.URL)
-        snurl = "&sns=".join(listOfSerials)
-        url = url + snurl
-        response = self.__setup_get_api_call(info, url)
-        return(response['data'])
-
-    def onboardAps(self, data):
-        info="onboard APs"
-        url = "{}/devices/:onboard".format(self.URL)
-        payload = json.dumps(data)
-        response = self.__setup_post_api_call(info,url,payload)
-        return response
-
-    def renameAP(self, ap_id, name):
-        info="rename AP '{}'".format(ap_id)
-        url = f"{self.URL}/devices/{ap_id}/hostname?hostname={name}"
-        response = self.__setup_put_api_call(info,url)
-        return response
-
-    def changeAPLocation(self, ap_id, data):
-        info="set location for AP '{}'".format(ap_id)
-        payload = json.dumps(data)
-        url = f"{self.URL}/devices/{ap_id}/location"
-        response = self.__setup_put_api_call(info,url,payload=payload)
-        return response
-    '''
-
     def advanceOnboardAPs(self, data, lro=False):
         info="onboard APs"
         payload = json.dumps(data)

@@ -9,6 +9,7 @@ import shutil
 import getpass
 import pandas as pd
 import numpy as np
+from pprint import pprint as pp
 from app.Ekahau_importer import Ekahau
 from app.ap_csv_importer import apSerialCSV
 from mapImportLogger import logger
@@ -30,6 +31,25 @@ BLUE  = "\033[1;34m"
 GREEN = "\033[0;32m"
 YELLOW = "\033[0;33m"
 RESET = "\033[0;0m"
+
+
+def _create_char_spinner():
+    """Creates a generator yielding a char based spinner.
+    """
+    while True:
+        for character in '|/-\\':
+            yield character
+
+_spinner = _create_char_spinner()
+
+def spinner(label=''):
+    """Prints label with a spinner.
+
+    When called repeatedly from inside a loop this prints
+    a one line CLI spinner.
+    """
+    sys.stdout.write("\r%s %s  " % (label, next(_spinner)))
+    sys.stdout.flush()
 
 def yesNoLoop(question):
     validResponse = False
@@ -288,6 +308,47 @@ def createBuildingInfo(site_id, site_name):
             sys.stdout.write("script is exiting....\n")
             sys.stdout.write(RESET)
             raise SystemExit
+
+def getNPFromList():
+    data = x.collectNetworkPolicies()
+    if data['total_count'] > 10:
+        print("There are more than 10 network policies, please search by name.")
+        np_id = getNPByName()
+    else:
+        validResponse = False
+        while validResponse != True:
+            count = 0
+            countmap = {}
+            print("Which Network Policy would you like to use?")
+            for npolicy in data['data']:
+                countmap[count] = npolicy['id']
+                print(f"{count} - {npolicy['name']}")
+                count+=1
+            selection = input(f"Please enter 0 - {count}: ")
+            try:
+                selection = int(selection)
+            except:
+                sys.stdout.write(YELLOW)
+                sys.stdout.write("Please enter a valid response!!\n")
+                sys.stdout.write(RESET)
+                continue
+            if 0 <= selection < count:
+                validResponse = True
+                np_id = countmap[selection]
+    return np_id
+
+
+def getNPByName():
+    np_found = False
+    while not np_found:
+        np_name = input("Please enter the name of the Network Policy for the APs: ")
+        np_data = x.checkNetworkPolicy(np_name)
+        if np_data['total_count'] != 1:
+            print(f"There were {np_data['total_count']} Network Policies found with name '{np_name}'. Please enter the full network policy name and try again.")
+        else:
+            np_found = True
+            return np_data['data'][0]['id']
+
 
 def updateApWithId(ap):
     global ek_ap_df
@@ -628,6 +689,32 @@ else:
             logger.info(log_msg)        
 
 
+# Select Network Policy to use for devices
+validResponse = False
+while validResponse != True:
+    print("Would you like to select a network policy or search for a network policy?")
+    print("0 - Select from a list")
+    print("1 - Search by name")
+    selection = input(f"Please enter 0 - 1: ")
+    try:
+        selection = int(selection)
+    except:
+        sys.stdout.write(YELLOW)
+        sys.stdout.write("Please enter a valid response!!\n")
+        sys.stdout.write(RESET)
+        continue
+    if selection == 0:
+        np_id = getNPFromList()
+        validResponse = True
+    elif selection == 1:
+        np_id = getNPByName()
+        validResponse = True
+    else:
+        sys.stdout.write(YELLOW)
+        sys.stdout.write("Please enter a valid response!!\n")
+        sys.stdout.write(RESET)
+
+
 # ADD APS TO FLOORS
 ek_floor_df = pd.DataFrame(rawData['floors'])
 ek_ap_df = pd.DataFrame(rawData['aps'])
@@ -637,6 +724,7 @@ for floor_id in listOfFloors:
     filt = ek_floor_df['floor_id'] == floor_id
     xiq_id = (ek_floor_df.loc[filt,'xiq_floor_id'].values[0])
     ek_ap_df = ek_ap_df.replace({'location_id':{floor_id : str(xiq_id)}})
+
 # get list of serial numbers
 ek_ap_df['sn'].replace('', np.nan, inplace=True)
 duplicateSN = ek_ap_df['sn'].dropna().duplicated().any()
@@ -649,141 +737,101 @@ if duplicateSN:
     sys.stdout.write(RESET)
     raise SystemExit
 nanValues = ek_ap_df[ek_ap_df['sn'].isna()]
-listOfSN = list(ek_ap_df['sn'].dropna().unique())
-if nanValues.name.size > 0 and len(listOfSN) == 0:
-    log_msg = ("Serial numbers were not found for any AP. Please check to make sure they are added correctly and try again.")
+ek_ap_df.dropna(subset=["sn"], inplace=True)
+# End script if no APs have serial numbers
+if nanValues.name.size > 0 and len(ek_ap_df['sn'].tolist()) == 0:
+    log_msg = ("\nSerial numbers were not found for any AP. Please check to make sure they are added correctly and try again.")
     logger.warning(log_msg)
     sys.stdout.write(YELLOW)
     sys.stdout.write("\n"+log_msg + '\n')
     print("script is exiting....")
     sys.stdout.write(RESET)
     raise SystemExit
+# remove APs that do not have serial numbers
 elif nanValues.name.size > 0:
     print("\nSerial numbers were not found for these APs. Please correct and run the script again if you would like to add them.\n  ", end='')
     print(*nanValues.name.values, sep = "\n  ")
     logger.info("Serial numbers were not found for these APs: " + ",".join(nanValues.name.values))
 
-# Batch serial numbers 
-
-sizeofbatch = 100
-if len(listOfSN) > sizeofbatch:
-    sys.stdout.write(YELLOW)
-    sys.stdout.write("\nThis script will work in batches of 100 APs.\n\n")
-    sys.stdout.write(RESET)
-
-apsToConfigure = []
-for i in range(0, len(listOfSN),sizeofbatch):
-    batch = listOfSN[i:i+sizeofbatch]
-    cleanBatch = listOfSN[i:i+sizeofbatch]
-    apSNFound = False
-    # check if they exist 
-    existingAps = x.checkApsBySerial(batch) 
-    for ap in existingAps:
-        batch = list(filter(lambda a: a != ap['serial_number'], batch))
-        updateApWithId(ap)
-    
-    subtracted = [i for i in cleanBatch if i not in batch]
-    if subtracted:
-        print("\nThese AP serial numbers already exist:\n  ", end='')
-        print(*subtracted, sep = "\n  ")
-        logger.info("These AP serial numbers already exist: " + ",".join(subtracted))
-        response = yesNoLoop("Would you like to move these existing APs to the floorplan?")
-        if response == 'n':
-            logger.info("User selected not to move these APs as they already existed.")
-        elif response == 'y':
-            logger.info("User selected to move these APs anyways.")
-            apsToConfigure.extend(subtracted)
-            apSNFound = True
-    cleanBatch = batch
-    # if new APs onboard
-    if batch:
-        print("Attempting to onboard APs... ", end='')
-        sys.stdout.flush()
-        data = {
-            "extreme":{
-                "sns" : batch
-            }
-        }
-        response = x.onboardAps(data)
-        time.sleep(10)
-        if response != 'Success':
-            print("Failed")
-            print("\nfailed to onboard APs with these serial numbers:\n  ", end='')
-            print(*batch, sep = "\n  ")
-            logger.error("Failed to onboard APs " + ",".join(batch))
-            continue
-        existingAps = x.checkApsBySerial(batch)
-        for ap in existingAps:
-            batch = list(filter(lambda a: a != ap['serial_number'], batch))
-            updateApWithId(ap)
-        if batch:
-            print("Failed")
-            sys.stdout.write(YELLOW)
-            sys.stdout.write("\nThese AP serial numbers were not able to be onboarded at this time. Please check the serial numbers and try again.\n")
-            sys.stdout.write(RESET)
-            print("  ", end='')
-            print(*batch, sep='\n  ')
-            logger.warning(f"These APs could not be added. " + ",".join(batch))
-            subtracted = [i for i in cleanBatch if i not in batch]
-            if subtracted:
-                print("\nThe following AP successfully onboarded:\n  ", end='')
-                print(*subtracted, sep='\n  ')
-                logger.info("These AP serial numbers successfully onboarded: " + ",".join(subtracted))
-                response = yesNoLoop("Would you like to continue and move these APs to the floorplan?")
-                if response == 'n':
-                    logger.info("User selected not to move these APs as they already existed.")
-                    continue
-                elif response == 'y':
-                    logger.info("User selected to move these onboarded APs.")
-                    apsToConfigure.extend(subtracted)
-        else:
-            apsToConfigure.extend(cleanBatch)
-            print("Complete")
-
-    elif apSNFound == False and cleanBatch:
-        sys.stdout.write(YELLOW)
-        sys.stdout.write("There were no new APs found in this batch.\n")
-        sys.stdout.write(RESET)
-        logger.info("There were no new APs found in this batch.")
-        response = yesNoLoop("Would you like to move these existing APs to the floorplan?")
-        if response == 'n':
-            logger.info("User selected not to move these APs as they already existed.")
-            continue
-        elif response == 'y':
-            logger.info("User selected to move these APs anyways.")
-            apsToConfigure.extend(subtracted)
-
-if apsToConfigure:
-    print("Starting to rename APs and move them")
-    for ap_sn in apsToConfigure:
-        filt = ek_ap_df['sn'] == ap_sn
-        ap_df = ek_ap_df[filt]
-        # rename AP
-        response = x.renameAP(ap_df['xiq_id'].values[0], ap_df['name'].values[0])
-        if response != "Success":
-            log_msg = f"Failed to change name of {ap_df['xiq_id'].values[0]}"
-            sys.stdout.write(RED)
-            sys.stdout.write(log_msg + '\n')
-            sys.stdout.write(RESET)
-            logger.error(log_msg)
-        else:
-            logger.info(f"Changed name of AP to {ap_df['name'].values[0]}")
-        data = {
-            "location_id" : ap_df['location_id'].values[0],
-            "x" : ap_df['x'].values[0],
-            "y" : ap_df['y'].values[0],
+# Build AP data
+onboard_list = []
+for ap_id, ap_info in ek_ap_df.iterrows():
+    data = {
+        "serial_number": ap_info['sn'],
+        "location": {
+            "location_id": ap_info['location_id'],
+            "x": ap_info['x'],
+            "y": ap_info['y'],
             "latitude": 0,
             "longitude": 0
-        }
-        response = x.changeAPLocation(ap_df['xiq_id'].values[0], data)
-        if response != "Success":
-            log_msg = (f"Failed to set location of {ap_df['xiq_id'].values[0]}")
-            print(log_msg)
-            logging.error(log_msg)
-        else:
-            logger.info(f"Set location for {ap_df['name'].values[0]}")
+        },
+        "network_policy_id": np_id,
+        "hostname": ap_info['name']
+    }
+    onboard_list.append(data)
 
-    print("Finished renaming APs and moving them")
+# Check number of APs onboarding
+if len(onboard_list) > 30:
+    print("\nWith more the 30 APs onboarding, Long-running operation will be used.")
+    payload = {"extreme": onboard_list,
+               "unmanaged": False
+               }
+    lro_url = x.advanceOnboardAPs(payload,lro=True)
+    lro_result = 'PENDING'
+    while lro_result != 'SUCCEEDED':
+        data = x.checkLRO(lro_url)
+        lro_result = data['metadata']['status']
+        print(f"\nThe long running operation's result is {lro_result}")
+        if lro_result != 'SUCCEEDED':
+            print("Script will sleep for 30 secs and check again.")
+            t = 120
+            while t > 0:
+                spinner()
+                time.sleep(.25)
+                t -= 1
+            sys.stdout.write("\r  ")
+            sys.stdout.flush()
+    response = data['response']
+
+        
+else:
+    payload = {"extreme": onboard_list,
+               "unmanaged": False
+               }
+    response = x.advanceOnboardAPs(payload)
+    
+# Log successes
+if "success_devices" in response:
+    print("\nThe following devices were onboarded successfully:")
+    for device in response['success_devices']:
+        log_msg = f"Device {device['serial_number']} successfully onboarded created with id: {device["device_id"]}"
+        print(log_msg)
+        logger.info(log_msg)
+
+if "failure_devices" in response:
+    fd_df = pd.DataFrame(response['failure_devices'])
+    error_list = fd_df['error'].unique()
+    for error in error_list:
+        filt = fd_df['error'] == error
+        serials = fd_df.loc[filt,'serial_number'].values
+        if error == 'DEVICE_EXISTED':
+            print("\nThe following AP are already onboard in this XIQ instance:\n  ", end='')
+            print(*serials, sep='\n  ')
+            logger.warning("These AP serial numbers are already onboarded in this XIQ instance: " + ",".join(serials))
+            #response = yesNoLoop("Would you like to move these existing APs to the floorplan?")
+        elif error == 'EXIST_IN_REDIRECT':
+            print("\nTThese AP serial numbers were not able to be onboarded at this time as the serial numbers belong to another XIQ instance. Please check the serial numbers and try again:\n  ", end='')
+            print(*serials, sep='\n  ')
+            logger.warning("These AP serial numbers are already onboarded in this XIQ instance: " + ",".join(serials))
+        elif error == 'PRODUCT_TYPE_NOT_EXIST':
+            print("\nThese AP serial numbers are not valid. Please check serial numbers and try again:\n ", end='')
+            print(*serials, sep='\n  ')
+            logger.warning("These AP serial numbers are not valid: " + ",".join(serials))
+        else:
+            print(f"\nThese AP serial numbers failed to onboard with the error '{error}':")
+            print(*serials, sep='\n  ')
+            logger.warning(f"These AP serial numbers failed to onboard with '{error}': " + ",".join(serials)) 
+
 
 if saveImages == False:
     shutil.rmtree(imageFilePath)

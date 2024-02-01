@@ -58,7 +58,7 @@ class XIQ:
             print("exiting script...")
             raise SystemExit
         if 'error' in response:
-            if response['error_mssage']:
+            if response['error_message']:
                 log_msg = (f"Status Code {response['error_id']}: {response['error_message']}")
                 logger.error(log_msg)
                 print(f"API Failed {info} with reason: {log_msg}")
@@ -87,7 +87,7 @@ class XIQ:
             print("exiting script...")
             raise SystemExit
         if 'error' in response:
-            if response['error_mssage']:
+            if response['error_message']:
                 log_msg = (f"Status Code {response['error_id']}: {response['error_message']}")
                 logger.error(log_msg)
                 print(f"API Failed {info} with reason: {log_msg}")
@@ -121,6 +121,42 @@ class XIQ:
         
         return 'Success'
 
+    def __setup_lro_api_call(self, info, url, payload, lro):
+        url = url + str(lro)
+        for count in range(1, self.totalretries):
+            try:
+                response = requests.post(url, headers= self.headers, data=payload)
+            except HTTPError as http_err:
+                logger.error(f'HTTP error occurred: {http_err} - on API {url}')
+                print(f"API to {info} failed attempt {count} of {self.totalretries} with HTTP error occurred: {http_err}")
+                continue
+            if response is None:
+                log_msg = "ERROR: No response received from XIQ!"
+                logger.error(log_msg)
+                print(f"API to {info} failed attempt {count} of {self.totalretries} with {log_msg}")
+                continue
+            if lro:
+                if response.status_code != 202:
+                    log_msg = f"Error - HTTP Status Code: {str(response.status_code)}"
+                    logger.error(f"{log_msg}")
+                    logger.warning(f"\t\t{response.text()}")
+                    print(f"API to {info} failed attempt {count} of {self.totalretries} with {log_msg}")
+                    continue
+                return response
+            else:
+                if response.status_code != 200:
+                    log_msg = f"Error - HTTP Status Code: {str(response.status_code)}"
+                    logger.error(f"{log_msg}")
+                    logger.warning(f"\t\t{response.text()}")
+                    print(f"API to {info} failed attempt {count} of {self.totalretries} with {log_msg}")
+                    continue
+                try:
+                    data = response.json()
+                except json.JSONDecodeError:
+                    logger.error(f"Unable to parse json data - {url} - HTTP Status Code: {str(response.status_code)}")
+                    print(f"API to {info} failed attempt {count} of {self.totalretries} with Unable to parse the data from json, script cannot proceed")
+                return data
+
 
     def __get_api_call(self, url):
         try:
@@ -135,7 +171,7 @@ class XIQ:
         if response.status_code != 200:
             log_msg = f"Error - HTTP Status Code: {str(response.status_code)}"
             logger.error(f"{log_msg}")
-            logger.warning(f"\t\t{response}")
+            logger.warning(f"\t\t{response.text()}")
             raise ValueError(log_msg)  
         try:
             data = response.json()
@@ -458,7 +494,21 @@ class XIQ:
         response = self.__setup_post_api_call(info,url,payload)
         return response['id']
 
+    #Network Policies
+    def checkNetworkPolicy(self, np_name):
+        info=f"checking for network policy {np_name}"
+        url = self.URL + '/network-policies?page=1&limit=10&policyNames=' + np_name
+        response = self.__setup_get_api_call(info,url)
+        return response
+        
+    def collectNetworkPolicies(self):
+        info="gather network policies"
+        url = "{}/network-policies?page=1&limit=10".format(self.URL)
+        response = self.__setup_get_api_call(info,url)
+        return response
+    
     #APS
+    '''
     def checkApsBySerial(self, listOfSerials):
         info="check APs by Serial Number"
         url = "{}/devices?limit=100&sns=".format(self.URL)
@@ -486,3 +536,40 @@ class XIQ:
         url = f"{self.URL}/devices/{ap_id}/location"
         response = self.__setup_put_api_call(info,url,payload=payload)
         return response
+    '''
+
+    def advanceOnboardAPs(self, data, lro=False):
+        info="onboard APs"
+        payload = json.dumps(data)
+        url = f"{self.URL}/devices/:advanced-onboard?async="
+        response = self.__setup_lro_api_call(info,url,payload,lro)
+        if lro:
+            return response.headers['Location']
+        else:
+            return response
+
+    # LRO
+    def checkLRO(self, url):
+        info='check lro status'
+        response = requests.get(url, headers=self.headers)
+        if response.status_code != 200:
+            print(f"Error {info} - HTTP Status Code: {str(response.status_code)}")
+            print(response.text)
+            data = {
+                  "metadata": {
+                    "status": f"HTTP ERROR: {str(response.status_code)}",
+                  }
+                }
+        else:
+            try:
+                data = response.json()
+            except json.JSONDecodeError:
+                    logger.error(f"Unable to parse json data - {url} - HTTP Status Code: {str(response.status_code)}")
+                    print(f"API to {info} failed attempt with Unable to parse the data from json, script cannot proceed") 
+                    data = {
+                          "metadata": {
+                            "status": f"Json parse ERROR: {str(response.text())}",
+                          }
+                        }       
+        return data
+

@@ -41,7 +41,7 @@ class Ekahau:
 
     def exportFile(self):
         data = {}
-        itemList = ['project', 'buildings', 'floorPlans', 'accessPoints', 'buildingFloors', 'floorTypes', 'images', 'notes', 'tagKeys', 'deviceProfiles','images']
+        itemList = ['project', 'buildings', 'floorPlans', 'accessPoints', 'buildingFloors', 'floorTypes', 'images', 'notes', 'tagKeys', 'deviceProfiles']
         self.buildingexists = True
         # Unzip Ekahau folder in to a created 'project' directory
         try:
@@ -240,7 +240,7 @@ class Ekahau:
             # Building data
             address_keys = ['address','city','state','postal_code']
             for building_id, row in self.building_df.iterrows():
-                address_list = self.project_info['location'].split(",")
+                address_list = [x.strip() for x in self.project_info['location'].split(",")]
                 res = dict(zip(address_keys, address_list))
                 for element in address_keys:
                     if element not in res:
@@ -276,7 +276,7 @@ class Ekahau:
                 floorHeight = 4
                 buildingId = None
                 floorAttenuation = 15
-
+            row.dropna(inplace=True)
             # Change image names
             if 'bitmapImageId' in row:
                 imageType = 'bitmap'

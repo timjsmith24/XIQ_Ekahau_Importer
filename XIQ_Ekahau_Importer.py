@@ -726,7 +726,7 @@ for floor_id in listOfFloors:
     ek_ap_df = ek_ap_df.replace({'location_id':{floor_id : str(xiq_id)}})
 
 # get list of serial numbers
-ek_ap_df['sn'].replace('', np.nan, inplace=True)
+ek_ap_df['sn'] = ek_ap_df['sn'].replace('', np.nan)
 duplicateSN = ek_ap_df['sn'].dropna().duplicated().any()
 if duplicateSN:
     log_msg = ("\nMultiple APs have the same serial numbers. Please fix and try again.")
@@ -804,7 +804,7 @@ else:
 if "success_devices" in response:
     print("\nThe following devices were onboarded successfully:")
     for device in response['success_devices']:
-        log_msg = f"Device {device['serial_number']} successfully onboarded created with id: {device["device_id"]}"
+        log_msg = f"Device {device['serial_number']} successfully onboarded created with id: {device['device_id']}"
         print(log_msg)
         logger.info(log_msg)
 

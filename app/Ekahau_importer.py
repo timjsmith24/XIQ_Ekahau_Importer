@@ -23,7 +23,8 @@ class Ekahau:
     def __init__(self, filename):
         self.filename = filename
         self.metersPerUnit = {}
-        self.scale = 1
+        self.x_scale = 1
+        self.y_scale = 1
         self.cropRotateSupport = True
 
         directory = PATH + '/images'
@@ -127,14 +128,14 @@ class Ekahau:
     def __floorImageProcessing(self, imageId, imageType):
 
         if imageType == 'bitmap':
-            filt = self.floorPlans_df['bitmapImageId'] == imageId
-            rawWidth = int(self.images_df.loc[imageId, 'resolutionWidth'])
-            rawHeight = int(self.images_df.loc[imageId, 'resolutionHeight'])
-            self.scale = rawWidth / int(self.floorPlans_df.loc[filt, 'width'].values[0])
+            filt = self.floorPlans_df['bitmapImageId'] == imageId    
         else:
             filt = self.floorPlans_df['imageId'] == imageId
-            rawWidth = int(self.floorPlans_df.loc[filt, 'width'].values[0])
-            rawHeight = int(self.floorPlans_df.loc[filt, 'height'].values[0])
+        rawWidth = int(self.images_df.loc[imageId, 'resolutionWidth'])
+        rawHeight = int(self.images_df.loc[imageId, 'resolutionHeight'])
+        self.x_scale = rawWidth / int(self.floorPlans_df.loc[filt, 'width'].values[0])
+        self.y_scale = rawHeight / int(self.floorPlans_df.loc[filt, 'height'].values[0])
+
         floorName = self.floorPlans_df.loc[filt, 'name'].values[0]
         imageFormat = (self.images_df.loc[imageId, 'imageFormat'])
         orientation = self.floorPlans_df.loc[filt, 'rotateUpDirection'].values[0]
@@ -161,7 +162,7 @@ class Ekahau:
                 logger.error(log_msg)
                 raise ValueError(log_msg)
         quality = 75
-        if file_size > 1000000:
+        if file_size > 24550000:
             quality = 50
         image = cv2.imread(filename)
         if image is None:
@@ -171,10 +172,10 @@ class Ekahau:
             
        
         #Cropping image as necessary
-        minX=int(int(self.floorPlans_df.loc[filt, 'cropMinX'].values[0]) * self.scale)
-        minY=int(int(self.floorPlans_df.loc[filt, 'cropMinY'].values[0]) * self.scale)
-        maxX=int(int(self.floorPlans_df.loc[filt, 'cropMaxX'].values[0]) * self.scale)
-        maxY=int(int(self.floorPlans_df.loc[filt, 'cropMaxY'].values[0]) * self.scale)
+        minX=int(int(self.floorPlans_df.loc[filt, 'cropMinX'].values[0]) * self.x_scale)
+        minY=int(int(self.floorPlans_df.loc[filt, 'cropMinY'].values[0]) * self.y_scale)
+        maxX=int(int(self.floorPlans_df.loc[filt, 'cropMaxX'].values[0]) * self.x_scale)
+        maxY=int(int(self.floorPlans_df.loc[filt, 'cropMaxY'].values[0]) * self.y_scale)
         #print(minY,maxY, minX,maxX)
         crop_image = image[minY:maxY, minX:maxX]
     
@@ -197,25 +198,25 @@ class Ekahau:
         #write cropped and rotated image file
         write_status = cv2.imwrite(newfilename, image, [cv2.IMWRITE_JPEG_QUALITY, quality])
         if not write_status:
-            log_msg = f"Failed to write {newfilename} after croping"
+            log_msg = f"Failed to write {newfilename} after cropping"
             logger.error(log_msg)
             raise ValueError(log_msg)
         
         file_size = os.path.getsize(newfilename)
-        if file_size > 1000000:
+        if file_size > 10000000:
             floorplan_name = 'FILE_TOO_BIG_' + floorplan_name
         return floorplan_name, width, height
 
     def __updateAPCoord(self, floor_id, rawX,rawY):
         #get correct x,y coords
-        minX=int(int(self.floorPlans_df.loc[floor_id, 'cropMinX']) * self.scale)
-        minY=int(int(self.floorPlans_df.loc[floor_id, 'cropMinY']) * self.scale)
-        maxX=int(int(self.floorPlans_df.loc[floor_id, 'cropMaxX']) * self.scale)
-        maxY=int(int(self.floorPlans_df.loc[floor_id, 'cropMaxY']) * self.scale)
+        minX=int(int(self.floorPlans_df.loc[floor_id, 'cropMinX']) * self.x_scale)
+        minY=int(int(self.floorPlans_df.loc[floor_id, 'cropMinY']) * self.y_scale)
+        maxX=int(int(self.floorPlans_df.loc[floor_id, 'cropMaxX']) * self.x_scale)
+        maxY=int(int(self.floorPlans_df.loc[floor_id, 'cropMaxY']) * self.y_scale)
         metersPerUnit = self.floorPlans_df.loc[floor_id, 'metersPerUnit']
         orientation = self.floorPlans_df.loc[floor_id, 'rotateUpDirection']
-        rawX = rawX  * self.scale
-        rawY = rawY  * self.scale
+        rawX = rawX  * self.x_scale
+        rawY = rawY  * self.y_scale
 
         if orientation == 'UP':
             x = (rawX - minX) * metersPerUnit
@@ -251,6 +252,8 @@ class Ekahau:
                     'address': res,
                     'xiq_building_id' : None
                 }
+                if data['address']['address'] == '':
+                    data['address']['address'] = 'Unknown'
                 self.EkahauData['building'].append(data)
 
         # Floor data
